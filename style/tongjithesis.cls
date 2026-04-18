@@ -2,7 +2,7 @@
 % tongjithesis -- Tongji University Thesis Template
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \NeedsTeXFormat{LaTeX2e}
-\ProvidesClass{tongjithesis}[2026/03/27 v1.2.0 Tongji University Thesis Class]
+\ProvidesClass{tongjithesis}[2026/04/16 v1.3.0 Tongji University Thesis Class]
 
 %% TongjiThesis
 %% Copyright 2023-2026 TJ-CSCCG
@@ -61,25 +61,28 @@
 % Class Loading
 % ==========================================
 % 加载 ctexbook 类
-\LoadClass[UTF8,a4paper,zihao=5]{ctexbook}
+\LoadClass[UTF8,a4paper,zihao=-4]{ctexbook}  % zihao=-4 must match \tjfontbody (小四号)
 
 % ==========================================
 % Formatting Constants (官方模板规范)
 % ==========================================
 % Font sizes
-\newcommand{\tjfonttitle}{\zihao{-2}}       % 课题名称：小二号
-\newcommand{\tjfontheading}{\zihao{4}}       % 一级标题 / 摘要标题 / 目录标题：四号
-\newcommand{\tjfontbody}{\zihao{5}}          % 正文 / 二三级标题 / 关键词 / 摘要正文：五号
-\newcommand{\tjfontcaption}{\small}          % 表题 / 图题：小五号（\small = \zihao{-5}）
+\newcommand{\tjfonttitle}{\zihao{-2}}        % 课题名称：小二号
+\newcommand{\tjfontchapter}{\zihao{-3}}      % 章标题 / 目录标题：小三号
+\newcommand{\tjfontheading}{\zihao{4}}       % 摘要标题 / 参考文献 / 谢辞标题：四号
+\newcommand{\tjfontbody}{\zihao{-4}}         % 正文 / 二三级标题 / 关键词 / 摘要正文：小四号
+\newcommand{\tjfontcaption}{\zihao{-5}}      % 表题 / 图题：小五号
+\newcommand{\tjfontcover}{\zihao{-3}}        % 封面表格字段值：小三号
 \newcommand{\tjfonttable}{\zihao{-5}}        % 表内文字：小五号
+\newcommand{\tjfontinfotitle}{\zihao{3}}     % 信息说明页标题：三号（仅此页专用）
 % Spacing
 \newcommand{\tjskipbeforesec}{.5\baselineskip}  % 段前 0.5 行
 \newcommand{\tjskipaftersec}{.5\baselineskip}   % 段后 0.5 行
-\newcommand{\tjlinespread}{1.5}               % 全文行距倍数（≈18磅 at 五号字）
+\newcommand{\tjlinespread}{1.5}               % 全文行距倍数（≈21.6磅 at 小四号12pt；setspace linespread × 1.2 × fontsize）
 % Header and cover text
 \newcommand{\tjheadertext}{毕业设计（论文）}
 \makeatletter
-\newcommand{\tj@covertype}{本科毕业设计（论文）}
+\newcommand{\tj@covertype}{毕业设计（论文）}
 \makeatother
 
 % ==========================================
@@ -91,6 +94,7 @@
 \RequirePackage{fancyhdr}
 \RequirePackage{lastpage}
 \RequirePackage{eso-pic}
+\RequirePackage{emptypage}
 
 % Typography and text formatting
 \RequirePackage[T1]{fontenc}
@@ -127,6 +131,13 @@
 \RequirePackage{longtable}
 \RequirePackage{threeparttable}
 \RequirePackage{threeparttablex}
+% Caption customization (must load before subcaption, which internally loads caption)
+\RequirePackage{caption}
+\DeclareCaptionLabelSeparator{tj@twospace}{\ ~}
+\DeclareCaptionFont{tj@songti}{\songti}
+\DeclareCaptionFont{tj@caption}{\tjfontcaption}
+\captionsetup{labelsep=tj@twospace,font={tj@caption,tj@songti}}
+
 \RequirePackage{subcaption}
 
 % Algorithms and code listings
@@ -220,11 +231,8 @@
 
 % Units and graphics
 \RequirePackage{siunitx}[=v2]
+\RequirePackage{pgf}
 \RequirePackage{tikz}
-
-% Caption customization
-\DeclareCaptionLabelSeparator{twospace}{\ ~}
-\RequirePackage[font=small,labelsep=twospace]{caption}
 
 % ==========================================
 % Bibliography Configuration
@@ -279,14 +287,6 @@
 % Page Layout
 % ==========================================
 
-% 重新定义 \cleardoublepage 命令
-\let\origdoublepage\cleardoublepage
-\newcommand{\clearemptydoublepage}{
-  \clearpage
-  {\pagestyle{empty}\origdoublepage}
-}
-\let\cleardoublepage\clearemptydoublepage
-
 % 画边界线（使用 eso-pic + savebox，避免 fancyput 与 listings 的跨页冲突）
 % Pre-render binding line content into saved boxes, all centered in 1em width
 \newlength{\bindwidth}
@@ -297,9 +297,9 @@
 \newsavebox{\tjbindX}
 \AtBeginDocument{%
   \sbox{\tjbindpipe}{\makebox[\bindwidth][c]{\rule{0.4pt}{3mm}}}%
-  \sbox{\tjbindZ}{\makebox[\bindwidth][c]{装}}%
-  \sbox{\tjbindD}{\makebox[\bindwidth][c]{订}}%
-  \sbox{\tjbindX}{\makebox[\bindwidth][c]{线}}%
+  \sbox{\tjbindZ}{\makebox[\bindwidth][c]{\zihao{5}装}}%
+  \sbox{\tjbindD}{\makebox[\bindwidth][c]{\zihao{5}订}}%
+  \sbox{\tjbindX}{\makebox[\bindwidth][c]{\zihao{5}线}}%
 }
 
 % Flag to suppress binding line on cover page
@@ -381,8 +381,8 @@
 \fancypagestyle{firststyle}{
   \fancyhf{}
   \fancyhead[LO,RE]{~ \includegraphics[height=1.14cm]{figures/tongji.pdf}~}
-  \fancyhead[RO,LE]{\large ~\tjheadertext~\\}
-  \fancyfoot[C]{\large \thepage}
+  \fancyhead[RO,LE]{\tjfontbody ~\tjheadertext~\\}
+  \fancyfoot[C]{\tjfontbody \thepage}
   \renewcommand{\headrulewidth}{1.8pt}
   \renewcommand{\footrulewidth}{0pt}
 }
@@ -391,9 +391,9 @@
 \fancypagestyle{mainstyle}{
   \fancyhf{}
   \fancyhead[LO,RE]{~ \includegraphics[height=1.14cm]{figures/tongji.pdf}~}
-  \fancyhead[RO,LE]{\large ~\tjheadertext~\\}
-  \fancyfoot[RO]{{\large 共\quad \pageref{LastPage}\quad 页\quad 第\quad \thepage \quad 页}}
-  \fancyfoot[LE]{{\large 第\quad \thepage \quad 页\quad 共\quad \pageref{LastPage}\quad 页}}
+  \fancyhead[RO,LE]{\tjfontbody ~\tjheadertext~\\}
+  \fancyfoot[RO]{{\tjfontbody 共\quad \pageref{LastPage}\quad 页\quad 第\quad \thepage \quad 页}}
+  \fancyfoot[LE]{{\tjfontbody 第\quad \thepage \quad 页\quad 共\quad \pageref{LastPage}\quad 页}}
   \renewcommand{\headrulewidth}{1.8pt}
   \renewcommand{\footrulewidth}{1.8pt}
 }
@@ -414,9 +414,15 @@
   \pagestyle{mainstyle}%
   \fancypagestyle{plain}{\pagestyle{mainstyle}}%
 }
+% Backmatter headings use 四号 (references, acknowledgements) per 2026 spec.
+% The \ctexset override is intentionally permanent for the rest of the document
+% (backmatter is always the final structural division).
+\let\tj@origbackmatter\backmatter
+\renewcommand{\backmatter}{%
+  \tj@origbackmatter
+  \ctexset{chapter/format={\centering\heiti\tjfontheading}}%
+}
 \makeatother
-% Note: \backmatter is NOT redefined. The default ctexbook behavior
-% (disabling chapter numbering, keeping page numbers continuous) is correct.
 
 % ==========================================
 % Typography and Font Settings
@@ -428,6 +434,12 @@
 \AtBeginEnvironment{tabularx}{\tjfonttable}
 \AtBeginEnvironment{longtable}{\tjfonttable}
 \AtBeginEnvironment{tablenotes}{\tjfonttable}
+
+% 续表行：五号宋体，右对齐，右空2格（规范要求）
+% 用法：在 longtable 的 \endhead 中，列头重复前调用 \tjlongtablecont{列数}
+\newcommand{\tjlongtablecont}[1]{%
+  \multicolumn{#1}{r@{\hspace{2em}}}{\zihao{5}\songti 续表~\thetable}\\%
+}
 
 % ==========================================
 % Lists and Enumerations
@@ -464,7 +476,9 @@
 \setlength{\cftbeforechapskip}{0pt}
 \setlength{\cftbeforesecskip}{0pt}
 \setlength{\cftbeforesubsecskip}{0pt}
-\renewcommand{\contentsname}{\tjfontheading\heiti\textmd{目\hspace{0.5em}录}}
+\renewcommand{\contentsname}{目\hspace{0.5em}录}
+\renewcommand{\cfttoctitlefont}{\hfill\heiti\tjfontchapter}
+\renewcommand{\cftaftertoctitle}{\hfill}
 \renewcommand{\cftchapfont}{\songti\tjfontbody}
 \renewcommand{\cftsecfont}{\songti\tjfontbody}
 \renewcommand{\cftsubsecfont}{\songti\tjfontbody}
@@ -505,12 +519,12 @@
 % 设置正文页内章节标题格式
 \ctexset{
   chapter={%
-    format={\centering\heiti\tjfontheading},
+    format={\centering\heiti\tjfontchapter},
     nameformat={},
     name={},
     number={\arabic{chapter}},
     aftername={\quad},
-    break={\clearpage},
+    break={\cleardoublepage},  % oneside 下等同 \clearpage；twoside 下章首始于奇数页，由 emptypage 抑制页眉
     % Negative beforeskip: absolute value (16pt) is the vertical space above
     % the heading; the negative sign suppresses first paragraph indent (ctex convention).
     beforeskip={-16pt},
@@ -718,7 +732,7 @@
 \newenvironment{information}[1][h!]{
   \renewcommand{\arraystretch}{1.5}
   \setlength{\tabcolsep}{8pt}
-  \zihao{-3}\oldtabular[#1]
+  \tjfontcover\oldtabular[#1]
 }{\renewcommand{\arraystretch}{1.2}\endoldtabular
 }
 
@@ -752,6 +766,7 @@
   \begin{titlepage}
     \begin{center}
       \global\tjbindinglinefalse
+      \pagestyle{empty}
       \vspace*{\fill}
 
       \includegraphics[height=2.25cm]{figures/tongji.pdf}
@@ -780,11 +795,90 @@
 }
 \makeatother
 
+% 设置信息说明页
+% (@ is already a letter throughout a cls file — no \makeatletter needed)
+\newcommand{\infotype}[1]{\def\tongjiinfotype{#1}}
+\newcommand{\infoabstract}[1]{\def\tongjiinfoabstract{#1}}
+\newcommand{\infodrawings}[1]{\def\tongjiinfodrawings{#1}}
+\newcommand{\infowordcount}[1]{\def\tongjiinfowordcount{#1}}
+\newcommand{\infothesiswords}[1]{\def\tongjiinfothesiswords{#1}}
+\newcommand{\infomaterials}[1]{\def\tongjiinfomaterials{#1}}
+\newcommand{\infoline}[2]{%
+  \noindent #1：#2\par\vspace{0.5em}
+}
+
+% Internal helpers for checkbox rendering (used only inside \MakeInfoPage)
+\newcommand{\tjchecked}{\rlap{$\checkmark$}$\square$}
+\newcommand{\tjunchecked}{$\square$}
+\newcommand{\tjcheckbox}[1]{%
+  \ifthenelse{\equal{\tongjiinfotype}{#1}}{\tjchecked}{\tjunchecked}%
+}
+\newcommand{\ulinebox}[2][c]{%
+  \uline{\makebox[#2][#1]{\phantom{X}}}%
+}
+
+\newcommand{\MakeInfoPage}{%
+  \begin{titlepage}
+    \global\tjbindinglinefalse
+    \pagestyle{empty}
+    \setstretch{1.3}
+
+    \begin{center}
+      \tjfontinfotitle\heiti 同济大学本科毕业设计（论文）信息说明页
+    \end{center}
+
+    \vspace{1em}
+
+    {\tjfontheading\songti  % 字段标签：四号宋体
+    \setlength{\parindent}{0pt}
+
+    \infoline{课题名称}{\parbox[t]{\dimexpr\linewidth-5em\relax}{%
+      \tongjithesistitle
+      \ifx\tongjithesissubtitle\empty\else ——\tongjithesissubtitle\fi
+    }}%
+    \vspace{0.5em}
+
+    \infoline{成果类型}{\tjcheckbox{design}\,毕业设计\quad \tjcheckbox{thesis}\,毕业论文}%
+
+    \infoline{学科专业}{\tongjimajor}%
+
+    \infoline{内容简述（请用300字以内简要概述）}{%
+      \par\vspace{0.2em}
+      % 摘要正文用小四号（规范正文字号），外层字段标签为四号
+      {\tjfontbody\setlength{\parindent}{2em}\tongjiinfoabstract\par}
+    }
+
+    % 按成果类型只显示对应行（官方模板为二选一）
+    \ifthenelse{\equal{\tongjiinfotype}{design}}{%
+      \infoline{毕业设计}{主要图纸~\ifx\tongjiinfodrawings\empty \ulinebox{4em} \else \underline{\makebox[4em][c]{\tongjiinfodrawings}} \fi~张，正文总字数~\ifx\tongjiinfowordcount\empty \ulinebox{6em} \else \underline{\makebox[6em][c]{\tongjiinfowordcount}} \fi~字}%
+    }{%
+      \infoline{毕业论文}{正文总字数~\ifx\tongjiinfothesiswords\empty \ulinebox{6em} \else \underline{\makebox[6em][c]{\tongjiinfothesiswords}} \fi~字}%
+    }%
+
+    \infoline{随附资料}{%
+      \vspace{0.5em}
+      \ifx\tongjiinfomaterials\empty
+        \par\vspace{0.5em}
+      \else
+        \begin{enumerate}[label=\arabic*.,leftmargin=2em,labelsep=0.5em,itemsep=0.2em,parsep=0pt,topsep=0pt] \tongjiinfomaterials \end{enumerate}
+      \fi
+    }%
+    \vspace{0.5em}
+    （请列出所有提交的支撑材料名称，如：毕业设计--全套图纸、毕业作品、计算书、程序代码、附录等）
+    }
+  \end{titlepage}
+  \setstretch{\tjlinespread}
+  \global\tjbindinglinetrue
+}
+
 % 设置中文摘要页
 \newcommand{\MakeAbstract}[2]{
   \begin{center}\bfseries\heiti\tjfonttitle
     \ \\
     \tongjithesistitle
+    \ifx\tongjithesissubtitle\empty\else
+      \\[0.5em]{\zihao{3}\tongjithesissubtitle}
+    \fi
   \end{center}
   \vspace{1pt}
   \begin{center}\heiti\tjfontheading
@@ -793,6 +887,7 @@
   \vspace{-0.5em}
 
   \begin{spacing}{1.5}
+    \setlength{\parindent}{2em}
     \songti\tjfontbody #1
     \par
   \end{spacing}
@@ -806,23 +901,27 @@
 % 设置英文摘要页
 \newcommand{\MakeAbstractEng}[2]{
   \clearpage
-  \begin{center}\heiti\tjfonttitle
+  \begin{center}\tjfonttitle
     \ \\
     \textbf{\tongjithesistitleeng}
+    \ifx\tongjithesissubtitleeng\empty\else
+      \\[0.5em]{\zihao{3}\textbf{\tongjithesissubtitleeng}}
+    \fi
   \end{center}
   \vspace{1pt}
-  \begin{center}\heiti\tjfontheading
+  \begin{center}\tjfontheading
     \textbf{ABSTRACT}
   \end{center}
   \vspace{-0.5em}
 
   \begin{spacing}{1.5}
+    \setlength{\parindent}{2em}
     \tjfontbody #1
     \par
   \end{spacing}
 
   \vskip 13.65pt % 小五字体单倍行距 13.65pt
-  \noindent{\heiti\tjfontbody
+  \noindent{\tjfontbody
     \textbf{Key words: }#2
   }
   \par
