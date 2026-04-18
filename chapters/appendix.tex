@@ -1,47 +1,88 @@
 \chapter{补充数据}\label{chap:appendix-data}
 
-本附录提供正文中未详细列出的补充数据与推导过程，供读者参考。
+\section{测试环境详细参数表}
+本节提供了测试环境中使用的机械臂模型、任务设置以及训练超参数的详细信息，以便读者能够更好地理解实验设置并复现相关结果。
 
-\section{数据处理公式推导}
+\subsection{环境参数表}\label{sec:environment-parameters}
+本节将提供测试的四个环境的环境参数表，包括状态空间维度、动作空间维度、奖励函数设计等关键信息。
 
-根据同济大学本科生成绩计算方法，课程成绩按五级制评定，成绩等级与课程绩点的对应关系如\cref{tab:grading-system}~所示。
-
+对于Reach、Push、Slide以及PickAndPlace任务，其参数表分别如\cref{tab:fetch-reach-full}、\cref{tab:fetch-push-full}、\cref{tab:fetch-slide-full}以及\cref{tab:fetch-pickplace-full}所示。
 \begin{table}[!htb]
-  \caption{同济大学本科生成绩等级与绩点对照}\label{tab:grading-system}
+  \caption{FetchReach-v4 任务参数规格表}\label{tab:fetch-reach-full}
   \centering
-  \begin{tabular}{@{}ccccc@{}} \toprule
-    \textbf{课程成绩} & \textbf{成绩等级} & \textbf{课程绩点} & \textbf{百分制折算值} \\ \midrule
-    优（Excellent） & A & 5 & 95 \\
-    良（Good）      & B & 4 & 85 \\
-    中（Fair）      & C & 3 & 75 \\
-    及格（Pass）    & D & 2 & 65 \\
-    不及格（Failed）& F & 0 & 30 \\ \bottomrule
+  \small
+  \begin{tabular}{@{} llccll @{}} \toprule
+    \textbf{类型} & \textbf{编号} & \textbf{参数名称} & \textbf{最小值} & \textbf{最大值} & \textbf{单位} \\ \midrule
+    \textbf{动作} & 0-2 & 末端执行器在$(x, y, z)$方向的位移 & -1 & 1 & m \\
+    & 3 & 夹爪控制（闭合不激活） & -1 & 1 & - \\ \midrule
+    \textbf{观测} & 0-2 & 末端执行器在全局坐标系中的位置$(x, y, z)$ & -Inf & Inf & m \\
+     & 3-4 & 左右夹爪手指的关节位移$(d_l, d_r)$ & -Inf & Inf & m \\
+    & 5-7 & 末端执行器在三个方向的线速度$(v_x, v_y, v_z)$ & -Inf & Inf & m/s \\
+    & 8-9 & 左右夹爪手指的线速度$(v_{l}, v_{r})$ & -Inf & Inf & m/s \\ \midrule
+    \textbf{目标} & 0-2 & 末端执行器的目标坐标点$(x, y, z)$ & -Inf & Inf & m \\ \bottomrule
   \end{tabular}
 \end{table}
 
-平均绩点（GPA）计算公式为：
-\begin{equation}\label{eq:gpa}
-  \text{GPA} = \frac{\sum(\text{课程学分} \times \text{课程绩点})}{\sum\text{课程学分}}
-\end{equation}
-全部课程的百分制平均成绩按以下公式折算：
-\begin{equation}\label{eq:avg-score}
-  \text{百分制平均成绩} = \frac{\sum(\text{百分制成绩折算值} \times \text{课程学分})}{\sum\text{课程学分}}
-\end{equation}
+\begin{table}[!htb]
+  \caption{FetchPush-v4 任务参数规格表}\label{tab:fetch-push-full}
+  \centering
+  \small
+  \begin{tabular}{@{} llccll @{}} \toprule
+    \textbf{类型} & \textbf{编号} & \textbf{参数名称} & \textbf{最小值} & \textbf{最大值} & \textbf{单位} \\ \midrule
+    \textbf{动作} & 0-2 & 末端执行器在$(x, y, z)$方向的位移 & -1 & 1 & m \\
+    & 3 & 夹爪控制（闭合不激活） & -1 & 1 & - \\ \midrule
+    \textbf{观测} & 0-2 & 末端执行器在全局坐标系中的位置$(x, y, z)$ & -Inf & Inf & m \\
+    & 3-5 & 物体在全局坐标系中的位置$(x, y, z)$ & -Inf & Inf & m \\
+    & 6-8 & 物体相对于末端执行器的相对位置$(x, y, z)$ & -Inf & Inf & m \\
+    & 9-10 & 左右夹爪手指的关节位移$(d_l, d_r)$ & -Inf & Inf & - \\
+    & 11-13 & 物体绕$(x, y, z)$三轴的旋转位姿 & -Inf & Inf & rad \\
+    & 14-16 & 物体相对于末端执行器的线速度$(v_x, v_y, v_z)$ & -Inf & Inf & m/s \\
+    & 17-19 & 物体角速度$(\omega_x, \omega_y, \omega_z)$ & -Inf & Inf & rad/s \\
+    & 20-22 & 末端执行器线速度$(v_x, v_y, v_z)$ & -Inf & Inf & m/s \\
+    & 23-24 & 左右夹爪手指速度$(v_{l}, v_{r})$  & -Inf & Inf & m/s \\ \midrule
+    \textbf{目标} & 0-2 & 物体期望目标坐标$(x, y, z)$，$z$坐标固定 & -Inf & Inf & m \\ \bottomrule
+  \end{tabular}
+\end{table}
 
-\section{补充数据表}
-
-\cref{tab:appendix-sample} 列出了更多测试样本的详细数据。
 
 \begin{table}[!htb]
-  \caption{补充测试数据}
-  \label{tab:appendix-sample}
+  \caption{FetchSlide-v4 任务参数规格表}\label{tab:fetch-slide-full}
   \centering
-  \begin{tabular}{@{}cccc@{}} \toprule
-    \textbf{样本编号} & \textbf{输入值} & \textbf{输出值} & \textbf{误差} \\ \midrule
-    1 & 0.50 & 0.48 & 0.02 \\
-    2 & 1.00 & 0.97 & 0.03 \\
-    3 & 1.50 & 1.52 & 0.02 \\
-    4 & 2.00 & 1.98 & 0.02 \\
-    5 & 2.50 & 2.53 & 0.03 \\ \bottomrule
+  \small
+  \begin{tabular}{@{} llccll @{}} \toprule
+    \textbf{类型} & \textbf{编号} & \textbf{参数名称} & \textbf{最小值} & \textbf{最大值} & \textbf{单位} \\ \midrule
+    \textbf{动作} & 0-2 & 末端执行器在$(x, y, z)$方向的位移 & -1 & 1 & m \\
+    & 3 & 夹爪控制（闭合不激活） & -1 & 1 & - \\ \midrule
+    \textbf{观测} & 0-2 & 末端执行器的全局位置坐标$(x, y, z)$ & -Inf & Inf & m \\
+    & 3-5 & 物体在全局坐标系中的位置$(x, y, z)$ & -Inf & Inf & m \\
+    & 6-8 & 物体相对于末端执行器的相对位置$(x, y, z)$ & -Inf & Inf & m \\
+    & 9-10 & 左右夹爪手指的关节位移$(d_l, d_r)$ & -Inf & Inf & - \\
+    & 11-13 & 物体绕$(x, y, z)$三轴的旋转位姿 & -Inf & Inf & rad \\
+    & 14-16 & 物体相对于末端执行器的线速度$(v_x, v_y, v_z)$ & -Inf & Inf & m/s \\
+    & 17-19 & 物体角速度$(\omega_x, \omega_y, \omega_z)$ & -Inf & Inf & rad/s \\
+    & 20-22 & 末端执行器线速度$(v_x, v_y, v_z)$ & -Inf & Inf & m/s \\
+    & 23-24 & 左右夹爪手指速度$(v_{l}, v_{r})$  & -Inf & Inf & m/s \\ \midrule
+    \textbf{目标} & 0-2 & 物体期望目标坐标$(x, y, z)$，$z$坐标固定 & -Inf & Inf & m \\ \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[!htb]
+  \caption{FetchPickAndPlace-v4 任务参数规格表}\label{tab:fetch-pickplace-full}
+  \centering
+  \small
+  \begin{tabular}{@{} llccll @{}} \toprule
+    \textbf{类型} & \textbf{编号} & \textbf{参数名称} & \textbf{最小值} & \textbf{最大值} & \textbf{单位} \\ \midrule
+    \textbf{动作} & 0-2 & 末端执行器在$(x, y, z)$方向的位移 & -1 & 1 & m \\
+    & 3 & 夹爪控制(张开/闭合) & -1 & 1 & - \\ \midrule
+    \textbf{观测} & 0-2 & 末端执行器的全局位置坐标$(x, y, z)$ & -Inf & Inf & m \\
+    & 3-5 & 物体在全局坐标系中的位置$(x, y, z)$ & -Inf & Inf & m \\
+    & 6-8 & 物体相对于末端执行器的相对位置$(x, y, z)$ & -Inf & Inf & m \\
+    & 9-10 & 左右夹爪手指的关节位移$(d_l, d_r)$ & -Inf & Inf & - \\
+    & 11-13 & 物体绕$(x, y, z)$三轴的旋转位姿 & -Inf & Inf & rad \\
+    & 14-16 & 物体相对于末端执行器的线速度$(v_x, v_y, v_z)$ & -Inf & Inf & m/s \\
+    & 17-19 & 物体角速度$(\omega_x, \omega_y, \omega_z)$ & -Inf & Inf & rad/s \\
+    & 20-22 & 末端执行器线速度$(v_x, v_y, v_z)$ & -Inf & Inf & m/s \\
+    & 23-24 & 左右夹爪手指速度$(v_{l}, v_{r})$  & -Inf & Inf & m/s \\ \midrule
+    \textbf{目标} & 0-2 & 物体期望目标坐标$(x, y, z)$ & -Inf & Inf & m \\ \bottomrule
   \end{tabular}
 \end{table}

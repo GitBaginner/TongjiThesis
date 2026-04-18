@@ -1,107 +1,42 @@
-\chapter{模板使用指南}\label{chap:guide}
+\chapter{绪论}\label{chap:lead}
 
-本文档是 \TongjiThesis{} 模板的使用示例，基本覆盖了模板的全部排版功能。建议在阅读本示例的同时参考源代码，了解各排版效果的实现方式。在正式撰写毕业设计（论文）时，请删除本章及后续示例章节，替换为实际内容。
+\section{研究意义与目的}\label{sec:meaning}
+机械臂作为现代工业与前沿科技的核心执行器，其应用已深度渗透至精密制造、智慧物流、医疗手术等关键领域\cite{JDCP202405017, billard2019trends}。然而，传统的机械臂控制方法在面对日益复杂的应用需求时，存在明显的局限性。一方面，传统控制方法高度依赖于离线编程与示教调试，这不仅要求操作人员具备高度专业的机器人学知识与工程经验，且需要进行长期的人工调试，部署效率较低\cite{alexandrova2014robot, sen2024semantic, wang2025low}。另一方面，受限于底层的固定控制架构，传统机械臂往往只能在高度结构化的环境中执行预设的运动轨迹\cite{xu2024survey}。一旦面对动态变化的环境或遭遇未知的任务需求，传统控制方法便难以自适应调节\cite{wang2025low}。这种对环境的严苛假设与缺乏泛化能力的特性，极大地限制了机械臂在开放世界场景中的广泛应用。
 
-\section{文档类选项}
+近年来，随着神经网络深度学习等相关技术的发展，具身智能的概念应运而生，且被认为是迈向通用人工智能的关键途径\cite{song2025embodied, feng2025embodied}。具身智能通过让智能体在物理或仿真环境中进行自主交互，来学习环境感知、认知与底层控制策略。在这一宏观范式下，强化学习(RL)成为了实现具身智能底层控制核心的理论基础与实现方法。相较于传统基于严格数学建模的控制，基于RL的机械臂控制方法能够通过自主试错与环境交互，学习传感器数据到动作策略的复杂非线性映射，从而实现具有一定鲁棒性的底层操作\cite{feng2025embodied}。这种方法一定程度上通过自主探索提高了部署效率，且针对环境的小幅变动具备一定的调节能力，但仍然没能彻底解决传统机械臂控制方法的缺陷。传统的RL方法通常针对单一、特定的任务进行独立训练。不仅多任务泛化能力较弱，而且训练后的网络为一个黑盒模型，缺乏对真实世界多模态信息及人类高级语义意图的理解，导致人类难以使用直观的方式去对其进行交互和控制。
 
-在 \verb|main.tex| 的 \verb|\documentclass| 中设置选项。本模板基于 \pkg{ctexbook}，未被识别的选项会自动传递给 \pkg{ctexbook}。
+为了打破上述局限，研究者们开始探索将大语言模型(LLMs)应用于机械臂控制领域\cite{driess2023palm}。LLMs在海量文本数据上训练，具备自然语言理解、逻辑推理以及零样本泛化能力\cite{zeng2023large}。基于LLMs构建智能体与机械臂的底层控制相结合，使用自然语言作为控制机械臂的交互接口，是当前具身智能领域的重大研究热点。相较于传统的代码指令或摇杆示教，基于LLMs的自然语言控制包含以下几点优势：首先，它极大地降低了人机交互的门槛，使得非专业用户也能通过日常语言指挥机器人完成复杂任务，赋予了系统更高的人机协作效率\cite{aliyu2025integrating}；其次，自然语言中蕴含的丰富语义信息能够作为一种天然的条件引导，打破传统RL方法只能执行单一任务的壁垒，帮助机械臂统一理解并灵活切换不同的操作行为。
 
-\begin{table}[htbp]
-  \centering
-  \caption{文档类选项一览}\label{tab:class-options}
-  \renewcommand{\arraystretch}{1.3}
-  \begin{tabular}{llp{7cm}}
-    \toprule
-    \textbf{选项} & \textbf{默认值} & \textbf{说明} \\
-    \midrule
-    \texttt{oneside / twoside} & \texttt{oneside} & 单面或双面排版。双面模式下章节从奇数页开始，装订线自动左右交替。 \\
-    \texttt{degree} & \texttt{bachelor} & 学位类型，目前支持 \texttt{bachelor}（学士）。 \\
-    \texttt{fontset} & 系统默认 & 字体集，传递给 \pkg{ctex}。常用值：\texttt{fandol}（跨平台）、\texttt{windows}、\texttt{mac}、\texttt{ubuntu}。 \\
-    \texttt{times} & \texttt{false} & \texttt{true}：通过 \pkg{fontspec} 调用系统 Times New Roman 字体；\texttt{false}：使用 \pkg{newtx} 宏包提供的 TeX 原生 Times 风格字体。两者视觉效果相近。 \\
-    \texttt{fullwidthstop} & \texttt{false} & 设为 \texttt{true} 时将中文句号从“。”替换为“．”（全角圆点）。 \\
-    \texttt{minted} & \texttt{true} & 代码高亮方案。\texttt{true} 使用 \pkg{minted}（需安装 Python 和 Pygments），\texttt{false} 回退至 \pkg{listings}。 \\
-    \texttt{biblatex} & \texttt{true} & 参考文献方案。\texttt{true} 使用 \BibLaTeX{} + \texttt{biber}（功能更丰富），\texttt{false} 使用 \BibTeX{} + \pkg{gbt7714}（编译更快）。 \\
-    \bottomrule
-  \end{tabular}
-\end{table}
+综上所述，打破传统机械臂指令化、僵硬化的控制范式，构建能够理解自然语言并执行对应任务的通用机械臂控制智能体，是当前该领域的核心诉求与发展趋势。基于此，本文旨在探索并训练一个通用的机械臂多任务控制模型，使其能够直接接受用户的自然语言指令，并将其转化为底层的机械臂动作序列，从而完成诸如Reach、Push、Slide以及PickAndPlace等基础机械臂控制任务。本课题不仅能够有效验证LLMs对底层运动的控制潜能、提升机械臂的多任务泛化能力，也为未来具身智能机器人在智能家居、柔性制造等非结构化场景中的普及应用提供了理论支撑与实践参考，具有深远的学术研究价值与广阔的工程应用前景。
 
-\section{填写论文信息}
+\section{国内外研究现状}\label{sec:status}
+\subsection{基于强化学习的机械臂操作研究现状}
+机械臂操作研究的历史悠久，传统的控制方案如PID控制、线性二次调节器(LQR)以及模型预测控制(MPC)曾长期占据核心地位\cite{borase2021review, chacko2023lqr, schwenzer2021review}。这些方法需要通过对机器人动力学以及环境物理特性的精确数学建模，设计解析解来驱动执行器，因此高度依赖精确的系统动力学建模。然而，在面对复杂的非线性环境或动态变化的作业任务时，这类方法需要人工介入调整，具备较弱的自适应性\cite{elguea2023review}。
 
-在 \verb|chapters/frontcover.tex| 中填写个人信息，模板将自动生成封面：
+为了克服传统方法对精确建模的依赖，强化学习提供了一种全新的范式。其核心价值在于试错学习与端到端控制，即智能体无需预知环境的动力学方程，仅需通过与环境交互获得的奖励信号来直接优化控制策略\cite{okafor2021heuristic, le2022deep, zhao2021dynamic}。这种从感知数据到动作矢量的直接映射，使得机械臂能够自主习得诸如避障、轨迹平滑等复杂行为，有效解决了传统控制中模型失真导致的鲁棒性差等问题\cite{adams2022survey, milani2024explainable}。
 
-{\small
-\begin{verbatim}
-\school{某某学院}
-\major{某某专业}
-\student{1999999}{某某某}
-\thesistitle{课题名称}{副标题}     % 副标题可留空 {}
-\thesistitleeng{English Title}{Subtitle}
-\thesisadvisor{指导教师}
-\thesisdate{\the\year}{\the\month}{\the\day}
+2013年Mnih等\cite{mnih2013playing}提出的深度Q网络(DQN)标志着深度学习与强化学习融合的突破，通过重放缓冲区和目标网络解决了训练不稳定性问题，成功实现了基于原始感知数据的智能体控制。尽管DQN在处理离散输入与输出方面表现出色，但机械臂操作通常涉及高维连续动作空间，DQN的动作离散化处理不可避免地导致了控制精度的损失\cite{ramamurthy2022reinforcement, mnih2013playing}。
 
-\MakeCover
-\end{verbatim}
-}
+为了直接在连续动作空间内优化控制策略，研究者提出了策略梯度方法。Schulman等\cite{schulman2017proximal}提出的近端策略优化(PPO)算法通过引入剪切后的代理目标函数，有效平衡了训练的稳定性与计算效率。PPO因其实现简单且参数敏感度低，已成为当前机械臂底层运动控制的基准算法之一。此外，Lillicrap等\cite{lillicrap2020continuous}将DQN的思想扩展至连续空间，提出了深度确定性策略梯度(DDPG)算法，采用了Actor-Critic架构，利用确定性策略梯度定理，使得神经网络可以直接输出机械臂关节的连续力矩值或位置增量。针对DDPG在训练过程中存在的Q值过估计及不稳定性问题，Fujimoto等\cite{fujimoto2018addressing}引入双Critic网络与延迟更新机制，开发了双延迟深度确定性策略梯度(TD3)算法，显著提升了机械臂在复杂操作任务中的鲁棒性\cite{zhang2020td3}。进一步地，Haarnoja等\cite{haarnoja2018soft}提出的SAC算法通过最大化策略熵，在保证任务成功率的同时增强了模型的探索能力与鲁棒性，并在处理接触力学复杂的精细操作中表现出比确定性策略更高的采样效率和泛化性能\cite{de2021soft, kaufmann2023survey}。
 
-摘要在 \verb|chapters/00_abstract.tex| 中填写，分别使用 \verb|\MakeAbstract{正文}{关键词}| 和 \verb|\MakeAbstractEng{Text}{Keywords}| 生成中英文摘要页。
+然而，尽管上述基于RL的算法已有能力在机械臂控制的单一任务上已能达到很高成功率，其局限性也日益凸显。目前的RL模型网络只能针对特定任务环境的奖励函数进行训练，一旦目标环境观测发生语义变化，模型便无法理解且会输出异常行为。更重要的是，传统的RL网络的动作触发仅依赖于纯数值的状态向量，缺乏对人类自然语言指令的理解能力。这导致了多任务泛化能力的缺失，也使得通过直观语言控制机械臂成为了当前研究必须攻克的下一道关口。
 
-\section{文档结构}
+\subsection{LLMs在机械臂领域的应用}
+LLMs具备强大的语义理解和常识推理能力。在具身智能领域，这一能力正在从根本上重塑机械臂的智能化路径。传统的机械臂控制系统依赖于结构化指令或预编程的动作序列，在面对开放式自然语言指令时往往无能为力。而LLMs凭借在互联网规模文本数据上预训练所获得的丰富语义知识，能够理解复杂多变的自然语言，在不进行额外训练的前提下就能够完成意图理解和任务规划\cite{huang2022language}。
 
-\verb|main.tex| 已预置了完整的论文结构，用户只需修改各 \verb|\input| 文件的内容：
+然而，主流模型如GPT-5\cite{singh2025openai}、Qwen3\cite{yang2025qwen3}等模型所含参数量过大，为机械臂的端侧部署带来了极高的计算成本和推理延迟，难以满足高频底层控制对实时性的要求\cite{ma2025running}。因此许多工作将LLMs定义为上层规划器的角色，实现任务层级上的低频调用，在保留高级语义理解能力的同时，实现低延迟的机械臂动作映射。2022年，Ahn等\cite{ahn2022can}提出的SayCan框架将未经微调的540B参数PaLM模型作为高层任务规划器，结合底层技能的价值函数来筛选在当前物理环境中既符合语义逻辑又切实可行的动作，最终在101项操纵任务中取得了大于60\%的成功率。在此基础上，Driess等\cite{driess2023palm}提出的PaLM-E模型额外对原始PaLM模型进行微调，并训练了独立的ViT网络用以处理视觉输入，进一步完善了智能体的感知并提升了长时序规划能力，但这两种方法都依赖封闭的底层控制策略。针对这一问题，Dalal等\cite{dalal2024plan}将运动规划和强化学习融入了底层策略，进一步地解决了长序列控制和规划问题，在包括MetaWorld等25项复杂机械臂控制任务上达到了高于85\%的成功率。
 
-\begin{table}[htbp]
-  \centering
-  \caption{文档结构一览}\label{tab:doc-structure}
-  \renewcommand{\arraystretch}{1.3}
-  \begin{tabular}{llp{7.5cm}}
-    \toprule
-    \textbf{结构} & \textbf{命令} & \textbf{说明} \\
-    \midrule
-    封面     & \verb|\MakeCover|        & 由 \verb|frontcover.tex| 中的信息自动生成 \\
-    前置部分 & \verb|\frontmatter|      & 页码切换为大写罗马数字（I, II, III\ldots） \\
-    摘要     & \verb|\MakeAbstract|     & 中英文摘要及关键词 \\
-    目录     & \verb|\tableofcontents|  & 自动生成；可取消注释 \verb|\listoffigures|、\verb|\listoftables| \\
-    正文     & \verb|\mainmatter|       & 页码切换为阿拉伯数字，从~1~重新开始 \\
-    参考文献 & \verb|\makereferences|   & 自动排版，格式符合 GB/T 7714 \\
-    附录     & \verb|\appendix|         & 章编号变为 A、B、C \\
-    谢辞     & \verb|\backmatter|       & 取消章编号，页码继续 \\
-    \bottomrule
-  \end{tabular}
-\end{table}
+此外，很多工作试图融合LLMs的代码能力和RL在控制策略探索上的优势，用LLMs来进一步引导RL的训练。Xie等\cite{xie2024text2reward}提出的Text2Reward框架驱动GPT-4根据自然语言目标直接编写可执行的Python奖励代码。该工作在ManiSkill2和MetaWorld的17项机械臂操纵任务上进行了验证，其生成的代码在90\%的情况下能被环境正确转译，成功驱动机器人完成了开门、推椅等任务。此外，Ma等\cite{ma2023eureka}提出的EUREKA算法将奖励函数设计建模为一个条件搜索问题。该方法将环境代码直接输入给GPT-4，利用大模型的上下文学习能力生成候选奖励函数，并通过强化学习的策略表现作为反馈，进行多轮迭代优化。在Isaac Gym环境的29项复杂操纵任务中，EUREKA生成的奖励函数在83\%的任务上超越了人类专家设计的基准。这两项工作表明，利用大参数LLMs的代码先验，可以有效克服传统RL采样效率低和奖励塑形困难的问题，能够更加容易地针对具体任务训练对应的策略。
 
-参考文献数据库文件在导言区通过 \verb|\tjbibresource{bib/note.bib}| 指定，支持逗号分隔的多个文件。
+此外，针对高质量机械臂真机示教数据获取成本高的问题，Ha等\cite{ha2023scaling}提出的Scaling\&Distilling方法展示了LLMs在数据自动化构建方面的潜力。该研究利用LLMs将复杂的机械臂任务拆解为子任务文本，并在仿真环境中执行以生成成功的运动轨迹，最后将这些轨迹蒸馏到轻量化的动作策略模型中。最终基于GPT-3和LLama2上进行测试，最终在稀疏奖励任务中的学习效率提升了76\%。
 
-\section{常用命令速查}
+然而，上述基于LLMs的工作尽管将世界知识融入了机械臂控制领域，但其依赖对应的转译功能框架，导致感知与底层执行之间存在信息瓶颈。为了实现视觉信息、自然语言指令与机械臂动作矢量的深度融合，研究者开始将视觉编码器直接嵌入大模型的训练回路中，并直接让模型输出底层动作策略，以实现端到端控制，从而开启了将视觉、语言及动作统一的基础模型(VLA)的研究。
 
-\tabref{tab:template-commands}列出了本模板提供的常用命令，具体用法在后续各章中演示。
+\subsection{VLA模型的研究进展}
+2022年，谷歌DeepMind提出的RT-1\cite{brohan2022rt}开启了VLA模型研究的新方向，该模型利用EfficientNet提取视觉特征，并通过FiLM机制融合通用句子编码器(USE)生成的语言嵌入，最后由Decoder-only Transformer输出离散化的动作Token。RT-1在包含13万条真实世界轨迹、覆盖700余项任务的数据集上表现出良好的跨任务泛化能力。进一步地,RT-2\cite{zitkovich2023rt}通过将PaLM-E以及PaLI-X等大规模预训练视觉语言模型(VLM)作为基础网络，利用互联网上的图文数据赋予了机器人更强的常识推理与零样本学习状态下任务执行能力。RT-2在面对训练集外的新型物体和复杂语义指令时，其成功率相较于仅在机器人数据上训练的模型，成功率提升了至少35\%。
 
-\begin{table}[htbp]
-  \centering
-  \caption{模板常用命令}\label{tab:template-commands}
-  \renewcommand{\arraystretch}{1.3}
-  \begin{tabular}{lp{9cm}}
-    \toprule
-    \textbf{命令} & \textbf{用途} \\
-    \midrule
-    \multicolumn{2}{l}{\textbf{交叉引用}} \\
-    \verb|\cref{label}|           & 智能引用，自动生成“第~X~章”“图~X”“式~X”等 \\
-    \verb|\chapref{label}|        & 引用章：第~X~章 \\
-    \verb|\secref{label}|         & 引用节：第~X~节 \\
-    \verb|\figref{label}|         & 引用图：图~X \\
-    \verb|\tabref{label}|         & 引用表：表~X \\
-    \verb|\eqref{label}|          & 引用公式：公式（X） \\
-    \midrule
-    \multicolumn{2}{l}{\textbf{参考文献}} \\
-    \verb|\tjbibresource{file}|   & 导言区指定 \texttt{.bib} 文件 \\
-    \verb|\makereferences|        & 输出参考文献列表 \\
-    \verb|\cite{key}|             & 上标引用 \\
-    \midrule
-    \multicolumn{2}{l}{\textbf{排版辅助}} \\
-    \verb|\pkg{name}|             & 排版宏包名称（带 CTAN 链接） \\
-    \verb|\cs{name}|              & 排版命令名称（如 \cs{section}） \\
-    \verb|\Circled{n}|            & 带圈数字：\Circled{1} \Circled{2} \Circled{3} \\
-    \verb|\TongjiThesis|            & 项目 Logo：\TongjiThesis \\
-    \verb|\dd|, \verb|\ee|, \verb|\ii|, \verb|\jj| & 直立体微分 $\dd$、自然对数底 $\ee$、虚数单位 $\ii$、$\jj$ \\
-    \bottomrule
-  \end{tabular}
-\end{table}
+随着诸如OXE等包含22种机器人平台、超过100万条轨迹的大规模具身数据集的发布\cite{oneillOpenXEmbodimentRobotic2024}，研究者开始推动VLA模型的规模化与开源化。OpenVLA\cite{kimOpenVLAOpenSourceVisionLanguageAction}作为一个具有7B参数规模的开源模型，利用Llama 2 7B作为语义处理核心，并融合了DINOv2与SigLIP的视觉特征。在97万条轨迹的微调训练后，OpenVLA在包含LIBERO多项操纵基准测试中超越了闭源的RT-2-X。此外，Octo模型\cite{octomodelteam2024octoopensourcegeneralistrobot}引入了扩散策略头，通过T5编码器处理指令并利用Transformer进行多模态融合，有效解决了自回归模型在处理多峰动作分布时的局限性。
+
+为了进一步优化VLA模型的动作预测精度和推理速度，近期的研究转向使用DiT进行模仿学习的连续控制架构，使模型更加轻量化。RDT-1B\cite{liu2025rdt1bdiffusionfoundationmodel}采用1B参数规模的DiT作为基础，将扩散去噪过程集成到Transformer解码器中，实现了高维动作序列的生成。而Physical Intelligence开发的π0模型\cite{black2026pi0visionlanguageactionflowmodel}利用PaliGemma作为基础，引入扩散去噪进行流匹配，在输出端生成50Hz的连续动作块，显著提升了机械臂在执行精细操纵任务时的平滑度与反应速度。π0.5\cite{intelligence2025pi05visionlanguageactionmodelopenworld}则进一步通过分层架构，将高层的任务分解与底层的流匹配动作执行相结合，在保持语义理解深度的同时，兼顾了底层控制的精度。
+
+综上所述，VLA 模型已实现了从简单的离散指令跟随到高维、高频连续动作生成的跨越。然而，现有的大多数VLA模型在端侧部署时仍面临计算资源消耗大、闭环控制延迟高等挑战，且小参数规模模型在动作向量映射的一致性与语义跟随精度方面仍有待提升。
