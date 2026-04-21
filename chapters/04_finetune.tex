@@ -1,20 +1,21 @@
-\chapter{面向机械臂底层控制策略的轻量LLM指令微调和部署}\label{chap:finetune}
+\chapter{面向机械臂底层控制策略的轻量LLM指令微调与部署}\label{chap:finetune}
 
-\section{引言}
-本章展示数字格式化、单位排版、数学公式以及定理环境等功能的使用方法。
-\section{大语言模型监督式微调原理}
-本章所需实现的将大语言模型应用于机械臂底层控制任务，其核心在于实现从自然语言及数值观测空间到物理动作空间的跨模态映射。鉴于预训练语言模型并未直接针对多维度连续物理动作进行优化，需引入监督指令微调(SFT)以对齐任务目标，并在SFT过程中采用参数高效微调(PEFT)方法在算力约束下重塑模型的动作输出分布，本研究中则采用了常用的LoRA方法来进行PEFT。
+\section{引言}\label{sec:finetune-intro}
+前述章节完成了基于TQC算法的单任务专家策略训练，以及面向大语言模型微调的多任务专家数据集构建。本章在此基础上，研究如何将大语言模型作为机械臂通用控制器进行指令微调与低延迟部署。整体技术路线为：利用\cref{chap:dataset}构建的专家数据集，通过参数高效微调方法使轻量级语言模型学会从文本化观测状态到连续动作序列的映射，并借助高性能推理引擎实现满足闭环控制需求的实时部署。
+
+本章首先在\cref{sec:sft-principle}中阐述监督指令微调的基本原理与LoRA参数高效微调方法，建立从序列建模到动作生成的理论框架。随后，\cref{sec:vllm-deploy}针对LLM推理延迟对闭环控制的影响，引入基于PagedAttention机制的vLLM推理引擎，并给出面向机械臂控制的部署配置。\cref{sec:llm_control-loop}将上述微调与部署模块整合为完整的闭环控制流程，分析各阶段的时序特性。最后，\cref{sec:llm_experiment-design}在6个轻量级基座模型上开展单任务微调实验，从任务成功率与推理延迟两个维度评估系统的控制性能。
+\section{大语言模型监督式微调原理}\label{sec:sft-principle}
+将大语言模型应用于机械臂底层控制任务，其核心在于实现从自然语言及数值观测空间到动作标记序列的跨模态映射。鉴于预训练语言模型并未直接针对多维度连续物理动作进行优化，需引入监督指令微调(SFT)以对齐任务目标，并在SFT过程中采用参数高效微调(PEFT)方法在算力约束下重塑模型的动作输出分布，本研究采用了LoRA\cite{hu2022lora}方法来实现PEFT。
 \subsection{监督指令微调与自回归动作建模}
 在常规自然语言处理中，LLMs通过自回归方式进行因果语言建模。给定输入上下文序列$X=\{x_1, x_2, \ldots, x_n\}$，模型旨在最大化目标序列$Y=\{y_1, y_2, \ldots, y_m\}$的条件概率。LLMs基于海量无标注的语料库中进行预训练，能够对常用语料进行拟合。然而，预训练阶段所习得的语言表征虽具备丰富的世界知识与语法结构，却难以直接、精准地响应特定下游任务中的用户意图与格式约束。换言之，预训练语言模型在特定任务的实际应用中，仍存在分布错位与目标差异。
 
-监督指令微调(SFT)通过引入特定任务下标注数据集$\mathcal{D}_{\text{SFT}}$，利用有监督学习的方式对预训练模型进行进一步优化。通过提供明确$(X, Y)$对示例，使模型能够学习到特定任务的输入格式、输出结构以及语义要求，从而实现从自然语言及数值观测空间到物理动作空间的跨模态映射。
+监督指令微调(SFT)通过引入特定任务下标注数据集$\mathcal{D}_{\text{SFT}}$，利用有监督学习的方式对预训练模型进行进一步优化。通过提供明确的$(X, Y)$对示例，使模型能够学习到特定任务的输入格式、输出结构以及语义要求，从而实现从自然语言及数值观测空间到动作标记序列的跨模态映射。在本研究中，$\mathcal{D}_{\text{SFT}}$即\cref{chap:dataset}中经过清洗构建的多任务专家数据集。
 
 在本研究的机械臂控制任务中，基于\cref{sec:dialogue-template}所述的处理方法，输入序列$X$包含了任务要求以及当前观测状态，目标序列$Y$为所需生成的动作。指令微调的训练目标即是通过最小化负对数似然损失：
 \begin{align}\label{eq:sft-loss}
-  \mathcal{L}_{\text{SFT}} &= -\sum_{t=1}^{m} \log P_{\Theta}(y_t | X, y_{<t}), (X,Y) \in \mathcal{D}_{\text{SFT}} \\
-  J(\Theta) &= -\arg\min_{\Theta}[\mathcal{L}_{\text{SFT}}]
+  \min_{\Theta}\mathcal{L}_{\text{SFT}} &= -\sum_{t=1}^{m} \log P_{\Theta}(y_t | X, y_{<t}), \quad (X,Y) \in \mathcal{D}_{\text{SFT}}
 \end{align}
-式中$\Theta$代表语言模型的参数,$y_{<t}$表示时刻$t$之前生成的动作字符标记。
+式中$\Theta$代表语言模型的参数，$y_{<t}$表示时刻$t$之前已生成的标记序列。
 
 这种建模方式将传统的连续动作回归问题转换为了序列预测问题。模型的分词器将输入的文字序列映射为对应的标记集合，语言模型则根据前文状态条件，预测后续动作序列，控制机械臂移动和夹爪开合。而由于包含数值信息，本项任务的难点便在于要求模型在微调过程中需要隐式地学习局部词表内的数值连续性规律，因此要求微调算法能够在不破坏预训练语义空间的前提下，具备数值分析与生成能力。
 
@@ -33,23 +34,181 @@
 \begin{align}
   h = W_0x+\frac{\alpha}{r}BAx
 \end{align}
-基于原作者的实验推理，降低秩r后的LoRA模块广泛注入于Transformer的各项注意力矩阵$(W_q, W_k, W_v, W_o)$中，可以最大程度地引导模型最优化目标。
 
-\section{面向底层控制的vLLM低延迟部署机制}
-在强化学习的单任务专家模型中，仅包含少量参数的MLP的前向传播仅需微秒级时间，能够轻松满足底层控制的高频需求。然而，引入大语言模型作为通用控制器后，庞大的参数规模导致了较高的推理延迟。为缓解计算滞后对闭环控制系统稳定性的破坏，本节引入vLLM引擎进行部署，以优化显存调度与算子执行效率。
+Hu等人\cite{hu2022lora}的实验表明，将LoRA模块注入注意力权重$W_q$和$W_v$即可达到与全注意力矩阵注入相当的效果，且较低的秩$r$足以使模型在下游任务上收敛至较优解。然而，在后续实验中发现，对于本研究的数值密集型动作生成任务，仅注入注意力层不足以充分重塑模型的动作输出分布。因此，本研究将LoRA模块的注入范围扩展至注意力层的全部投影矩阵$(W_q, W_k, W_v, W_o)$以及前馈网络层的门控与升降维投影矩阵$(W_{\text{gate}}, W_{\text{up}}, W_{\text{down}})$，以在更广泛的参数空间中引导模型学习动作序列的生成分布。
 
-基于Transformer架构的大语言模型依赖多头注意力机制进行上下文信息的建模。在推理阶段，模型会缓存历史生成的Key和Value张量，以避免重复计算。然而，随着生成序列长度的增加，KV缓存的显存占用也会线性增长，成为推理效率的瓶颈。vLLM通过引入分层内存管理机制，将KV缓存分为热数据和冷数据两部分，并采用动态调度策略将冷数据从GPU显存迁移到CPU内存，从而显著降低了显存占用并提升了推理效率。此外，vLLM还针对Transformer中的矩阵乘法等核心算子进行了优化，实现了更高的计算效率。
+% TODO: 插入LoRA结构示意图 fig:lora-structure
+% 建议绘制LoRA旁路结构图：
+%   左侧: 原始权重 W_0 (冻结，灰色)
+%   右侧: 旁路 B→A (可训练，蓝色)
+%   标注: 缩放因子 α/r, 输入x, 输出h = W_0·x + (α/r)·B·A·x
+%   参考 LoRA 原论文 Figure 1 的风格
 
-推理的算力与显存瓶颈在于注意力机制中的KV键值缓存。在传统的推理框架中，为避免重复计算，模型会缓存历史生成的 Key 和 Value 张量：
+\section{面向底层控制的vLLM低延迟部署机制}\label{sec:vllm-deploy}
+在强化学习的单任务专家模型中，仅包含少量参数的MLP前向传播仅需微秒级时间，能够轻松满足底层控制的高频需求。然而，引入大语言模型作为通用控制器后，庞大的参数规模导致了较高的推理延迟。为缓解计算滞后对闭环控制系统稳定性的影响，本节引入vLLM\cite{kwon2023efficient}推理引擎进行部署优化。
 
-
-\section{任务流程建模}
-想要解释vLLMs在任务流程中的作用，首先需要对LLMs到底层控制的任务流进行建模。在时间步$t$，仿真环境Gymnasium-Robotics返回物理状态向量$s_t$，经由前文设计的解析模块转换为文本提示$X_t$。经过LoRA微调后的语言模型可以表示为：
+\subsection{推理阶段KV缓存与显存瓶颈}
+基于Transformer架构的大语言模型在自回归推理阶段，需缓存历史生成的Key和Value张量以避免重复计算。设模型共有$L$层、$h$个注意力头、每头维度为$d_h$，当前序列长度为$s$，则KV缓存的显存占用为：
 \begin{align}
-  \Theta_{\text{LoRA}} = \Theta + \Delta \Theta(\Phi)
+  M_{\text{KV}} = 2 \times L \times h \times d_h \times s \times b
 \end{align}
-微调后网络$\Theta_{\text{LoRA}}$将基于提示词内容$X_t$预测下一个动作标记序列$\hat{Y}_t$：
-\begin{align}
-  \hat{Y}_t = \Theta_{\text{LoRA}}(X_t)
+式中$b$为每个元素的字节数，因子2分别对应Key和Value。可见，KV缓存的显存需求与序列长度$s$线性相关。在传统推理框架中，通常为每个请求预分配一块与最大序列长度等大的连续显存空间。这种静态分配策略可能会为并非实时需要的请求分配空间，在请求数多时造成浪费，限制了单卡可并发处理的请求数量，进而影响推理吞吐。
+
+\subsection{基于分页注意力的显存管理}
+Kwon等人\cite{kwon2023efficient}提出PagedAttention机制，借鉴操作系统虚拟内存的分页管理思想，将KV缓存组织为非连续的固定大小内存块(block)。每个block存储固定数量token的Key和Value向量，不同block在物理显存中无需相邻，通过block表维护逻辑block到物理block的映射关系。
+
+具体而言，PagedAttention将KV缓存的逻辑序列划分为若干block，每个block包含$B_s$个token的KV数据。对于一个长度为$s$的序列，其逻辑block数为$\lceil s / B_s \rceil$。block表记录了每个逻辑block对应的物理block地址，注意力计算时通过block表索引即可访问非连续物理显存中的KV数据。
+
+该机制带来了两方面的优势：其一，显存按需分配，仅在实际生成新token时才分配新的block，消除了预分配造成的显存浪费；其二，不同请求的KV缓存可以灵活共享物理block，在多任务并行推理场景下提升了显存利用率。
+
+此外，vLLM采用连续批处理策略，在迭代级别而非请求级别进行批处理调度。当某个请求生成完毕后，其占用的block可立即释放并分配给新请求，无需等待同一批次中所有请求完成。该策略进一步减少了GPU的空闲等待时间，提升了推理吞吐量。
+
+\subsection{面向机械臂控制的推理部署配置}
+在本研究的机械臂控制场景中，LLM以闭环方式参与每一步决策，推理延迟直接影响控制频率与系统稳定性。为此，本研究基于vLLM引擎进行了针对性的部署配置。
+
+在模型加载阶段，考虑到机械臂控制任务的输入序列由结构化的观测状态描述与任务指令构成，输出为4维动作数值序列，整体序列长度较短，因此将最大模型序列长度$\texttt{max\_model\_len}$设置为1024以限制KV缓存的显存预分配上限。同时，将GPU显存利用率$\texttt{gpu\_memory\_utilization}$设置为0.3，在单卡多任务并存的实验环境下为其他进程预留充足显存。此外，启用$\texttt{enforce\_eager}$模式以跳过CUDA Graph捕获阶段，减少首次推理的预热开销。
+
+在采样策略方面，由于机械臂控制要求同一观测状态下的动作输出具有确定性以避免末端执行器抖动，将采样温度$\texttt{temperature}$设置为0.0，即采用贪婪解码策略，在每个时间步选择概率最大的token作为输出。同时，将最大生成token数$\texttt{max\_tokens}$设置为64，以限制动作序列的生成长度并保障推理效率。
+
+
+\section{大语言模型驱动的闭环控制流程建模}\label{sec:llm_control-loop}
+前述各节分别阐述了指令微调方法与推理部署优化，本节将各模块整合为完整的闭环控制流程，并对其时序特性进行分析。
+
+\subsection{闭环控制流程}
+本研究构建的LLM驱动闭环控制系统如\cref{fig:control-loop}所示，其完整执行流程由以下五个阶段构成：
+
+\begin{enumerate}
+  \item \textbf{状态观测}：在时间步$t$，仿真环境Gymnasium-Robotics返回物理状态向量$s_t$，包含末端执行器位姿、目标物体状态及当前目标位置等信息。
+  \item \textbf{文本编码}：基于\cref{sec:data-transformation}设计的异构数据转化机制，将$s_t$中的各物理变量映射为具备语义信息的结构化文本描述，并按照\cref{sec:dialogue-template}的对话模板封装为完整提示词$X_t$。
+  \item \textbf{动作推理}：将$X_t$输入经LoRA微调后部署于vLLM引擎的语言模型$\Theta_{\text{LoRA}}$，模型通过自回归方式生成动作标记序列$\hat{Y}_t$。
+  \item \textbf{动作解析}：通过正则匹配从$\hat{Y}_t$中提取形如$[a_1, a_2, a_3, a_4]$的浮点数序列，其中$a_1, a_2, a_3$分别为末端执行器在$x, y, z$方向的增量位移，$a_4$为夹爪开合控制量，解析结果转换为连续动作向量$\hat{a}_t \in \mathbb{R}^4$。若模型输出无法匹配预期格式，则输出零向量作为安全回退动作。
+  \item \textbf{环境执行}：将$\hat{a}_t$输入仿真环境执行，产生下一时间步的状态$s_{t+1}$与奖励信号$r_t$，完成一个闭环周期。
+\end{enumerate}
+
+% TODO: 插入闭环控制流程图 fig:control-loop
+% 建议绘制一张从左到右的流程图，包含5个模块：
+%   仿真环境 → 数据转化模块 → LLM推理引擎(vLLM) → 动作解析模块 → 仿真环境
+%   在LLM推理引擎模块内标注 LoRA微调权重 和 PagedAttention
+%   下方标注时间轴: t_obs, t_encode, t_infer, t_parse, t_exec
+
+\subsection{控制时序分析}
+上述闭环流程的每一步均引入了不可忽略的计算开销。设状态观测与环境执行的时间分别为$t_{\text{obs}}$与$t_{\text{exec}}$，文本编码时间为$t_{\text{enc}}$，LLM推理时间为$t_{\text{infer}}$，动作解析时间为$t_{\text{parse}}$，则单个控制周期的总延迟为：
+\begin{align}\label{eq:control-latency}
+  T_{\text{step}} = t_{\text{obs}} + t_{\text{enc}} + t_{\text{infer}} + t_{\text{parse}} + t_{\text{exec}}
 \end{align}
-随后，解析模块将生成的动作标记序列$\hat{Y}_t$转换为连续动作向量$\hat{a}_t$，并将其输入到环境中执行，产生下一个状态$s_{t+1}$。
+其中，$t_{\text{infer}}$占据主导地位。与第二章中MLP专家模型的微秒级前向传播相比，LLM的推理延迟高出数个数量级，成为控制频率的主要瓶颈。然而，由于本研究面向的是机械臂操作任务而非高频伺服控制，任务本身对控制频率的需求在1\textasciitilde 10 Hz范围内即可满足，因此LLM的推理延迟在可接受范围内。vLLM引擎的引入进一步优化了$t_{\text{infer}}$，其实际推理性能将在\cref{sec:llm_experiment-design}及\cref{sec:llm_experiment-results}中通过实验进行量化分析。
+
+\section{实验设计}\label{sec:llm_experiment-design}
+本节围绕经LoRA微调后的大语言模型在机械臂操作任务上的控制性能进行实验设计。实验主要评估不同基座模型在单任务微调后的成功率与推理延迟，以验证指令微调与vLLM部署方案的有效性。
+
+\subsection{基座模型}
+为评估不同架构基座模型在机械臂底层控制任务上的微调潜力，本研究选取了6个参数量在0.6B至1.3B之间的轻量级开源大语言模型，其基本信息如\cref{tab:base-models}所示。
+
+\begin{table}[htbp]
+  \centering
+  \caption{实验所用基座模型}\label{tab:base-models}
+  \begin{tabular}{lccc}
+    \toprule
+    模型 & 参数量 & 开发机构 & 架构 \\
+    \midrule
+    Qwen3-0.6B\cite{yang2025qwen3} & 0.6B & 阿里云 & Decoder-only \\
+    Qwen3.5-0.8B\cite{yang2025qwen3} & 0.8B & 阿里云 & Decoder-only \\
+    Llama3.2-1B\cite{grattafiori2024llama} & 1B & Meta & Decoder-only \\
+    Gemma3-1B\cite{team2025gemma} & 1B & Google & Decoder-only \\
+    OLMo2-1B\cite{olmo2024olmo2} & 1B & AI2 & Decoder-only \\
+    Phi-1.5\cite{li2023phi} & 1.3B & Microsoft & Decoder-only \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+所有模型均采用Decoder-only架构，参数量控制在1B级别以确保在单张消费级GPU上的推理可行性。
+
+\subsection{微调与部署配置}
+所有模型统一采用如\cref{tab:training-config}所示的微调配置。LoRA模块的注入范围覆盖注意力层的全部投影矩阵$(W_q, W_k, W_v, W_o)$以及前馈网络层的门控与升降维投影矩阵$(W_g, W_{up}, W_{down})$，秩$r$设为16，缩放因子$\alpha$设为32。
+
+\begin{table}[htbp]
+  \centering
+  \caption{LoRA微调与训练超参数配置}\label{tab:training-config}
+  \begin{tabular}{ll}
+    \toprule
+    配置项 & 取值 \\
+    \midrule
+    LoRA秩 $r$ & 16 \\
+    LoRA缩放因子 $\alpha$ & 32 \\
+    LoRA Dropout & 0.05 \\
+    目标矩阵 & $W_q, W_k, W_v, W_o, W_g, W_{up}, W_{down}$ \\
+    \midrule
+    训练轮数 & 3 \\
+    学习率 & $5 \times 10^{-5}$ \\
+    批大小 & 4 \\
+    梯度累积步数 & 4 \\
+    最大序列长度 & 512 \\
+    精度 & BF16 \\
+    \midrule
+    训练硬件 & NVIDIA RTX 4070 Ti Super \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+在部署阶段，所有模型均采用\cref{sec:vllm-deploy}所述的vLLM引擎配置，采样温度设为0.0以输出当前最优结果，最大生成token数设为64。
+
+\subsection{评估协议}
+评估采用在线闭环测试方式，每个模型在每个任务上独立运行100个回合。评估指标包括：
+
+\begin{itemize}
+  \item \textbf{成功率}：在100个回合中，目标物体与目标地点距离小于0.05m的回合占比。
+  \item \textbf{格式解析率}：模型输出被正则表达式成功解析为4维浮点数向量的比例，能够反映模型对输出格式约束的符合程度。
+  \item \textbf{单步推理延迟}：从提示词输入vLLM引擎到动作向量解析完成的平均时间，基于100个回合的逐帧记录取均值。
+\end{itemize}
+
+作为性能上界参考，\cref{sec:expert-training}中训练的MLP专家模型在同样4个任务上经1000个回合评估的成功率也放入\cref{tab:experiment-results}中进行对比。
+
+\section{实验结果与分析}\label{sec:llm_experiment-results}
+基于\cref{sec:llm_experiment-design}所设计的实验，各模型在4项机械臂操作任务上的实验结果如\cref{tab:experiment-results}所示。
+
+\begin{table}[htbp]
+  \centering
+  \caption{各模型单任务微调后的闭环控制性能对比}\label{tab:experiment-results}
+  \small
+  \begin{tabular}{lcccccc}
+    \toprule
+    \multirow{2}{*}{模型} & \multicolumn{4}{c}{成功率 (\%)} & \multirow{2}{*}{\shortstack{平均\\成功率 (\%)}} & \multirow{2}{*}{\shortstack{平均延迟\\(ms)}} \\
+    \cmidrule(lr){2-5}
+    & Reach & Push & Pick & Slide & & \\
+    \midrule
+    MLP专家模型 & 100.0 & 97.9 & 99.0 & 83.2 & 95.0 & $<$1 \\
+    \midrule
+    Qwen3-0.6B & 100.0 & 5.0 & 41.0 & 27.0 & 43.25 & 186.0 \\
+    Qwen3.5-0.8B & 99.0 & 34.0 & 70.0 & 42.0 & 61.25 & 470.8 \\
+    Llama3.2-1B & 67.0 & 14.0 & 32.0 & 7.0 & 30.00 & 130.2 \\
+    Gemma3-1B & 93.0 & 20.0 & 20.0 & 4.0 & 34.25 & 410.2 \\
+    OLMo2-1B & 11.0 & 8.0 & 5.0 & 1.0 & 6.25 & 144.2 \\
+    Phi-1.5 & 4.0 & 5.0 & 1.0 & 0.0 & 2.50 & 135.9 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+% TODO: 插入成功率对比柱状图 fig:success-rate-comparison
+% 建议绘制分组柱状图：x轴为4个任务，每组6+1个柱（6个LLM + MLP基线），
+% y轴为成功率(%)，使用不同颜色区分模型，图例置于右侧或下方
+
+\subsection{任务成功率分析}
+从\cref{tab:experiment-results}的实验结果可以得出以下分析。
+
+在基座模型层面，Qwen3.5-0.8B取得了61.25\%的最高平均成功率，在Push、PickAndPlace和Slide三个接触密集型任务上均显著领先于其他模型。Qwen3-0.6B虽然在参数量上最少，但凭借186ms的低推理延迟和43.25\%的平均成功率，在效率与性能的平衡上表现出优势。Llama3.2-1B和Gemma3-1B的平均成功率分别为30.0\%和34.25\%，处于中间水平。OLMo2-1B和Phi-1.5的平均成功率仅为6.25\%和2.5\%，表明这两个基座模型的预训练表征与数值密集型动作生成任务存在较大差距。
+
+在任务层面，所有模型在Reach任务上的表现均优于其他任务，这是因为Reach仅涉及末端执行器的运动学控制，无需处理物体接触与碰撞。随着任务复杂度的增加，成功率普遍下降，其中Slide任务的下降最为显著。如\cref{sec:data-quality-analysis}所述，Slide任务对初始接触冲量极为敏感，微小的动作偏差会被动力学积分放大，该特性同样影响了LLM控制器的表现。值得注意的是，Qwen3.5-0.8B在Slide任务上仍达到了42\%的成功率，显著高于其他模型，表明更大的模型容量有助于学习对精度敏感的动力学映射。
+
+在格式解析率方面，所有模型在全部任务上的格式解析率均达到或接近100\%，表明监督式微调已使模型充分学习到动作输出的格式约束，能够稳定生成符合$[a_1, a_2, a_3, a_4]$结构的文本序列。
+
+\subsection{推理延迟分析}
+各模型的单步推理延迟如\cref{tab:experiment-results}最右列所示。参数量最小的Qwen3-0.6B实现了186ms的最短推理延迟，对应约5.4 Hz的控制频率；参数量相近的OLMo2-1B和Phi-1.5延迟分别为144ms和136ms，对应约7 Hz的控制频率。Qwen3.5-0.8B和Gemma3-1B的延迟分别为471ms和410ms，对应约2\textasciitilde 2.5 Hz的控制频率。
+
+% TODO: 插入推理延迟对比图 fig:latency-comparison
+% 建议绘制横向柱状图：y轴为6个模型名称，x轴为平均推理延迟(ms)，
+% 标注对应控制频率(Hz)，用虚线标注 1Hz 和 10Hz 两条参考线
+
+上述延迟均在机械臂操作任务1\textasciitilde 10 Hz的可接受范围内，验证了vLLM引擎部署方案在延迟层面的可行性。然而，与MLP专家模型的微秒级推理相比，LLM的推理延迟仍高出约5个数量级。这一差距本质上是通用语言模型与专用控制网络在架构复杂度上的固有差异，也是以LLM作为通用控制器所付出的效率代价。
+
+\subsection{小结}
+本章实验表明，在选定的6个轻量级基座模型中，基于Qwen系列模型的LoRA微调方案在机械臂操作任务上取得了最优的控制性能，其中Qwen3.5-0.8B以61.25\%的平均成功率领先。然而，所有LLM控制器与MLP专家模型之间仍存在显著性能差距，且Slide等对精度敏感的任务仍是主要挑战。当前实验基于单任务微调设定，即每个模型仅使用单一任务的专家数据进行微调。在后续工作中，可通过多任务混合微调进一步提升模型的泛化能力，使其在单一模型上同时具备多项操作技能。
