@@ -2,7 +2,7 @@
 \section{引言}\label{sec:reinforce-intro}
 如\cref{chap:lead}所述，基于LLMs的机械臂控制方法需要高质量的专家示范数据来实现底层动作对齐与指令微调。传统的专家数据获取方式通常依赖于人工遥操作示教或硬编码方法，前者成本高昂且受限于操作者熟练度，后者难以应对复杂物理接触的动态任务。本章采用强化学习方法为各项基础操作任务训练专属的单任务专家模型，训练逼近最优的控制策略，为后续数据集构建提供可靠的数据源。
 
-本章以Gymnasium-Robotics库中的MuJoCo物理仿真引擎为基础，针对Fetch机械臂的四项基础操作任务(Reach、Push、Slide、PickAndPlace)展开研究，具体组织如下。\cref{sec:rl-theory}概述强化学习基础理论以及本章选用的截断分位数评判(TQC)算法与事后经验回放(HER)机制。\cref{sec:rl-environment}针对四项任务的物理特性，分别设计状态空间、动作空间与奖励函数。\cref{sec:expert-training}利用TQC及HER算法对四项任务进行独立的策略训练，并通过消融实验验证HER的关键作用，最终对各专家模型的评估成功率进行定量分析。
+本章以Gymnasium-Robotics库中的MuJoCo物理仿真引擎为基础，针对Fetch机械臂的四项基础操作任务(Reach、Push、Slide、PickAndPlace)展开研究，具体组织如下。\cref{sec:rl-theory}概述强化学习基础理论以及本章选用的截断分位数(TQC)算法与事后经验回放(HER)机制。\cref{sec:rl-environment}针对四项任务的物理特性，分别设计状态空间、动作空间与奖励函数。\cref{sec:expert-training}利用TQC及HER算法对四项任务进行独立的策略训练，并通过消融实验验证HER的关键作用，最终对各专家模型的评估成功率进行定量分析。
 
 \section{强化学习基础理论和算法}\label{sec:rl-theory}
 \subsection{强化学习基础理论}\label{sec:rl-basics}

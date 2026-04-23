@@ -57,9 +57,12 @@
 \section{主要研究内容及文章结构}\label{sec:structure}
 本文围绕"如何构建基于轻量LLM的机械臂通用自然语言控制模型"这一核心问题展开研究，整体技术路线如\cref{fig:thesis-structure}所示。本文的主要贡献包括：
 
-% TODO: 插入论文整体技术路线图 fig:thesis-structure
-% 建议绘制横向流程图：RL专家训练 → 数据集构建与清洗 → LLM微调与部署
-% 各模块用方框表示，标注对应章节号，箭头表示数据流向
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\textwidth]{figures/workflow.png}
+  \caption{论文整体文章结构与技术路线}
+  \label{fig:thesis-structure}
+\end{figure}
 
 \begin{enumerate}
   \item 基于TQC算法与事后经验回放(HER)机制，在MuJoCo仿真环境中Fetch机械臂的四项基础操作任务(Reach、Push、Slide、PickAndPlace)训练高性能单任务RL专家模型，为后续数据集构建提供高质量的轨迹数据源。
