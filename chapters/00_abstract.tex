@@ -1,11 +1,21 @@
 \MakeAbstract{
-    摘要通常是一篇文章、论文、报告或其他文本的简短概括。它的目的是帮助读者了解文本的主要内容和结论，以便决定是否需要继续阅读原文。摘要通常包含文本的主题、目的、方法、结果和结论等方面的信息，并尽可能简洁明了地呈现。好的摘要应该能够概括文本的重点，同时避免使用不必要的细节和专业术语，以便广大读者能够轻松理解。
+    机械臂作为工业自动化与智能制造的核心装备，其智能化水平在很大程度上影响部署效率与应用范围。当前机械臂控制方法或依赖精确动力学建模，或面向单一任务训练策略，难以通过自然语言实现通用化的多任务控制。本文探索了一种基于轻量级大语言模型的机械臂通用控制方法，通过监督指令微调将自然语言指令与数值观测状态直接映射为底层连续动作序列。本文主要研究内容如下：
+    
+    基于TQC算法与HER机制，本文在MuJoCo仿真环境中为Fetch机械臂的Reach、Push、Slide与PickAndPlace四项操作任务训练了高性能单任务专家策略，评估成功率分别达到100.0\%、97.9\%、99.0\%与90.6\%。并对HER机制在不同任务复杂度下的影响进行了消融分析，揭示了HER在稀疏奖励环境中加速训练收敛的作用及其在部分任务中的潜在负面影响。
+    
+    设计了从物理状态到自然语言的异构数据转化机制，并提出基于物理引擎闭环回放的轨迹采集与清洗方法，经清洗后四项任务的轨迹匹配率分别为100.0\%、90.6\%、92.6\%与70.0\%。验证了数据集轨迹的可复现性，为后续指令微调提供了高质量的数据基础。
 
-    此外，摘要通常也是学术界和研究人员评估一篇文献的重要依据之一。在文献检索和筛选过程中，人们通常会根据摘要来决定是否进一步查看完整的文献。因此，撰写一个清晰、准确、简洁的摘要对于文献的传播和影响力至关重要。在撰写摘要时，作者应该遵循文献的格式要求和撰写规范，同时结合文本的内容和目的，将摘要撰写得准确、简洁、易懂，以提高文献的传播和影响力。
-}{关键词1，关键词2，关键词3}
+    利用构建的专家数据集，通过LoRA参数高效微调在6个参数量0.6B至1.3B的轻量级基座模型上开展了单任务与多任务混合微调实验，并借助vLLM推理引擎实现低延迟闭环部署。多任务混合微调中，Qwen3.5-0.8B以55.25\%的四项任务平均成功率取得最优性能。在与单任务微调结果进行对比后发现，除Qwen3.5-0.8B外的多个模型取得了不同程度的多任务性能提升，其中Llama3.2-1B提升最为明显，平均任务成功率提升了12.5\%。经测试，所有模型的推理延迟均在1\textasciitilde10 Hz的可接受范围内。
+
+}{机械臂控制，大语言模型，参数高效微调，强化学习，行为克隆}
 
 \MakeAbstractEng{
-    An abstract is usually a short summary of an article, essay, report, or other text. Its purpose is to help the reader understand the main content and conclusions of the text so that he or she can decide whether he or she needs to continue reading the original text. The abstract usually contains information about the topic, purpose, methods, results, and conclusions of the text and is presented as concisely and clearly as possible. A good abstract should be able to summarize the main points of the text while avoiding unnecessary details and jargon so that it can be easily understood by a wide audience.
+    As a core component of industrial automation and intelligent manufacturing, the intelligence level of robotic arms significantly affects deployment efficiency and application scope. Current robotic arm control methods either rely on precise dynamic modeling or train policies for individual tasks, making it difficult to achieve universal multi-task control through natural language. This paper explores a universal control method for robotic arms based on lightweight large language models, which directly maps natural language instructions and numerical observation states to low-level continuous action sequences through supervised instruction fine-tuning. The main contributions are as follows:
 
-    In addition, abstracts are often one of the most important bases on which academics and researchers evaluate a piece of literature. During the literature search and selection process, people often base their decision to look further into the complete literature on the abstract. Therefore, writing a clear, accurate, and concise abstract is crucial to the dissemination and impact of the literature. When writing an abstract, authors should follow the formatting requirements and writing specifications of the literature, as well as combine the content and purpose of the text to write an accurate, concise, and easy-to-understand abstract in order to improve the dissemination and impact of the literature.
-}{Keyword 1, Keyword 2, Keyword 3}
+    High-performance single-task expert policies are trained for the Reach, Push, Slide, and PickAndPlace manipulation tasks of the Fetch robotic arm in the MuJoCo simulation environment using the Truncated Quantile Critics algorithm with Hindsight Experience Replay, achieving evaluation success rates of 100.0\%, 97.9\%, 99.0\%, and 90.6\%, respectively. An ablation analysis is conducted on the impact of HER under different task complexities, revealing its role in accelerating training convergence in sparse reward environments as well as its potential negative effects in certain tasks.
+
+    A heterogeneous data transformation mechanism from physical states to natural language is designed, and a trajectory collection and cleaning method based on physics engine closed-loop replay is proposed. After cleaning, the trajectory matching rates for the four tasks are 100.0\%, 90.6\%, 92.6\%, and 70.0\%, respectively, verifying the reproducibility of the cleaned trajectories and providing a high-quality data foundation for subsequent instruction fine-tuning.
+
+    Using the constructed expert dataset, single-task and multi-task mixed fine-tuning experiments are conducted on six lightweight base models with parameters ranging from 0.6B to 1.3B through LoRA parameter-efficient fine-tuning, with low-latency closed-loop deployment achieved via the vLLM inference engine. In the multi-task mixed fine-tuning experiments, Qwen3.5-0.8B achieves the best performance with an average success rate of 55.25\% across the four tasks. A comparison with the single-task fine-tuning results reveals that, except for Qwen3.5-0.8B, multiple models exhibit varying degrees of multi-task performance improvement, among which Llama3.2-1B shows the most significant gain with its average success rate improving by 12.5 percentage points. The inference latency of all models falls within the acceptable range of 1\textasciitilde10 Hz. 
+    
+}{Robotic arm control, Large language models, Parameter-efficient fine-tuning, Reinforcement learning, Behavior cloning}

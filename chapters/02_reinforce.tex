@@ -1,8 +1,8 @@
 \chapter{基于TQC算法的机械臂操作任务专家策略学习}\label{chap:reinforce}
 \section{引言}\label{sec:reinforce-intro}
-如\cref{chap:lead}所述，基于LLMs的机械臂控制方法需要高质量的专家示范数据来实现底层动作对齐与指令微调。传统的专家数据获取方式通常依赖于人工遥操作示教或硬编码方法，前者成本高昂且受限于操作者熟练度，后者难以应对复杂物理接触的动态任务。本章采用强化学习方法为各项基础操作任务训练专属的单任务专家模型，训练逼近最优的控制策略，为后续数据集构建提供可靠的数据源。
+如\cref{chap:lead}所述，基于LLMs的机械臂控制方法需要高质量的专家示范数据来实现底层动作对齐与指令微调。传统的专家数据获取方式通常依赖于人工操作示教或硬编码方法，前者成本高昂且受限于示教者经验，后者难以应对复杂物理接触的动态任务。本章采用强化学习方法为各项基础操作任务训练专属的单任务专家模型，训练逼近最优的控制策略，为后续数据集构建提供可靠的数据源。
 
-本章以Gymnasium-Robotics库中的MuJoCo物理仿真引擎为基础，针对Fetch机械臂的四项基础操作任务(Reach、Push、Slide、PickAndPlace)展开研究，具体组织如下。\cref{sec:rl-theory}概述强化学习基础理论以及本章选用的截断分位数(TQC)算法与事后经验回放(HER)机制。\cref{sec:rl-environment}针对四项任务的物理特性，分别设计状态空间、动作空间与奖励函数。\cref{sec:expert-training}利用TQC及HER算法对四项任务进行独立的策略训练，并通过消融实验验证HER的关键作用，最终对各专家模型的评估成功率进行定量分析。
+本章以Gymnasium-Robotics库中的MuJoCo物理仿真引擎为基础，针对Fetch机械臂的四项基础操作任务(Reach、Push、Slide、PickAndPlace)展开研究，具体组织如下。\cref{sec:rl-theory}概述强化学习基础理论以及本章选用的截断分位数(TQC)算法与事后经验回放(HER)机制。\cref{sec:rl-environment}针对四项任务的物理特性，分别设计状态空间、动作空间与奖励函数。\cref{sec:expert-training}利用TQC及HER算法对四项任务进行独立的策略训练，并通过消融实验验证HER的作用，最终对各专家模型的评估成功率进行定量分析。
 
 \section{强化学习基础理论和算法}\label{sec:rl-theory}
 \subsection{强化学习基础理论}\label{sec:rl-basics}
@@ -139,7 +139,7 @@ MDP定义为一个五元组$\langle \mathcal{S}, \mathcal{A}, P, r, \gamma \rang
 \end{algorithm}
 
 \subsection{HER机制}\label{sec:her}
-在上节\cref{algo:tqc_flow}中，进行梯度更新的数据来源于智能体在探索过程中记录轨迹的经验回放池$\mathcal{D}$。在本章所使用的机械臂操作任务环境中，由于环境的稀疏奖励特性，智能体在初始阶段很难获得正向奖励信号，导致了较低的训练效率。为此，本节引入了事后经验回放(HER)\cite{andrychowicz2018hindsight}机制来提升训练效率。HER通过将智能体在失败轨迹中实际达到的状态作为新的目标状态进行重新标记，用以重构经验回放池$\mathcal{D}$，使得每次交互都能为智能体提供有价值的学习信号，从而加速策略的收敛。
+在上节\cref{algo:tqc_flow}中，进行梯度更新的数据来源于智能体在探索过程中记录轨迹的经验回放池$\mathcal{D}$。在本章所使用的机械臂操作任务环境中，由于环境的稀疏奖励特性，智能体在初始阶段很难获得正向奖励信号，导致了较低的训练效率。为此，本节引入了HER\cite{andrychowicz2018hindsight}机制来提升训练效率。HER通过将智能体在失败轨迹中实际达到的状态作为新的目标状态进行重新标记，用以重构经验回放池$\mathcal{D}$，使得每次交互都能为智能体提供有价值的学习信号，从而加速策略的收敛。
 
 \cref{sec:tqc}中定义了经验回放池$\mathcal{D}$中记录的四元组$(o, a, r, o')$。由于环境实际给予的奖励与目标状态$g$相关，即$r=R(s, g)$，故可以额外增加一维度$g$记录进入轨迹中，构成五元组$(o, a, r, o', g)$。HER通过在采样阶段对目标g重新标记来重构转移元组。具体而言，给定一个由环境收集的完整回合轨迹序列$\tau = \{(o_0, a_0), (o_1, a_1), \ldots, (o_T, a_T)\}$，对于时间步$t$的转移记录，HER对目标g进行了重构。从同一回合中时间步$t' > t$的实际物理状态中提取特征，映射为一个新的虚拟目标状态$g'$。给定观测$o$和目标状态$g$间的映射函数$\phi$，可以将新目标状态表示为$g' = \phi(o_{t'})$，并基于该新目标状态重新计算奖励$r' = R(s, g')$。因此，原始的转移记录$(o, a, r, o', g)$被重构为新的转移记录$(o, a, r', o', g')$，并存储回经验回放池$\mathcal{D}$中。
 
@@ -213,26 +213,56 @@ MDP定义为一个五元组$\langle \mathcal{S}, \mathcal{A}, P, r, \gamma \rang
 \end{table}
 
 \subsection{训练过程与收敛性分析}\label{sec:convergence-analysis}
-为了客观评估单任务专家模型在训练过程中的学习效率与策略稳定性，本节采用周期性在线评估机制。训练过程中，模型每隔固定时间步在独立测试环境中执行50个评估回合，策略网络不进行探索，直接输出当前最优动作。为验证HER机制对训练效率的贡献，本研究同时记录了相同超参数下不使用HER的TQC基线训练过程。四项任务在TQC+HER与纯TQC两种配置下的训练收敛曲线如\cref{fig:tqc_trainline}所示。
+为了客观评估单任务专家模型在训练过程中的学习效率与策略稳定性，本节采用周期性在线评估机制。训练过程中，模型每隔固定时间步在独立测试环境中执行50个评估回合，策略网络不进行探索，直接输出当前最优动作，并将评估成功率记录至TensorBoard日志。为验证HER机制对训练效率的贡献，本研究同时记录了相同超参数下不使用HER的TQC基线训练过程。训练曲线采用窗口长度为数据总量10\%的三阶Savitzky-Golay滤波器进行平滑处理，阴影区域由滤波器缓冲区内10至90百分位数的统计范围构成，用于表征训练过程中的波动程度。四项任务在TQC+HER与纯TQC两种配置下的训练收敛曲线如\cref{fig:tqc_trainline}所示。
 
-% TODO: 插入图 fig:tqc_trainline —— 2×2子图布局，每子图含TQC+HER（实线）和TQC（虚线）两条收敛曲线，中文标签，保存为 figures/tqc_trainline.pdf
+\begin{figure}[!htb]
+  \centering
+  \begin{subfigure}[b]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{figures/FetchReach.png}
+    \caption{FetchReach}\label{fig:tqc-reach}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[b]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{figures/FetchPush.png}
+    \caption{FetchPush}\label{fig:tqc-push}
+  \end{subfigure}
+  \vspace{2pt}
+  \begin{subfigure}[b]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{figures/FetchSlide.png}
+    \caption{FetchSlide}\label{fig:tqc-slide}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[b]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{figures/FetchPickAndPlace.png}
+    \caption{FetchPickAndPlace}\label{fig:tqc-pick}
+  \end{subfigure}
+  \caption{四项Fetch任务在TQC与TQC+HER配置下的训练收敛曲线对比。实线为Savitzky-Golay滤波后的中心趋势，阴影区域表示第10至第90百分位的统计波动范围。}\label{fig:tqc_trainline}
+\end{figure}
 
-\cref{fig:tqc_trainline}所示的收敛过程呈现出由任务复杂度导致的明显差异。在各任务训练的极早期阶段，由于采用了严格的稀疏奖励机制，智能体通过纯随机探索难以获取正向反馈，成功率均在零点附近徘徊。得益于HER中future目标重标记机制的介入，失败轨迹被迅速转化为有效的中间目标监督信号。图中TQC+HER曲线均在短暂的冷启动期后迎来快速上升，而未使用HER的纯TQC基线在整个训练过程中始终无法有效收敛，成功率长期停留在零附近。这一对比表明，HER是突破稀疏奖励冷启动困境的关键因素。
+\cref{fig:tqc_trainline}所示的四组收敛曲线揭示了HER机制在不同任务复杂度下的差异。Reach任务的10维无接触状态空间结构简单，TQC与TQC+HER两种方法均成功收敛至接近100\%的成功率，其中TQC+HER在约4800步突破50\%成功率，纯TQC则需要约8200步，HER将收敛速度提升了约1.7倍。在简单任务中，HER主要通过加速初期探索来缩短训练周期，并非收敛的必要条件。
 
-具体而言，Reach任务由于其10维无接触状态空间的简单性，TQC+HER在约7500步即收敛至接近100\%的成功率，全部训练仅需$2 \times 10^4$步即可完成。Push和PickAndPlace任务涉及刚体接触，状态空间扩展至25维，分别在约$4 \times 10^5$步和$6 \times 10^5$步完成收敛。Slide任务展现出最高的训练难度，其核心机制要求机械臂通过瞬时碰撞将物块击打至远距离目标位置，对初始接触状态和冲量极为敏感，训练曲线在$3 \times 10^6$步内呈现较大的波动，未达到完全平稳。
+Push任务中，TQC+HER在约64K步突破50\%成功率并最终稳定在97.9\%，纯TQC虽最终也达到97.5\%的成功率，但达到50\%成功率所需的步数约为189K步，收敛速度约为TQC+HER的三分之一。PickAndPlace任务中两组配置的差异更为显著，TQC+HER在约492K步达到80\%以上成功率并最终稳定在99.0\%，而纯TQC在整个$1 \times 10^6$步训练周期内始终未突破80\%，最终成功率仅为56.7\%。就两项任务最终收敛状态上而言，TQC+HER方法最终的波动范围比纯TQC方法最终的波动范围小，表明HER机制在提升策略稳定性方面也具备优势。因此对于涉及与物块交互的简单任务，HER提供的虚拟目标监督信号是策略有效收敛的重要保障。
 
-训练完成后，各任务专家模型在1000个独立评估回合中的成功率如\cref{tab:expert-success-rate}所示。Reach和PickAndPlace任务的专家模型分别实现了100.0\%和99.0\%的成功率，接近最优的控制性能。Push任务的成功率为97.9\%，表明在涉及物体推移的接触任务中，专家策略已具备高度的可靠性。Slide任务的相对较低成功率为83.2\%，反映了该任务对碰撞冲量与长距离滑行的极端敏感性，即使如此，该成功率仍远高于未经训练的随机策略。
+Slide任务呈现出与其他三项任务不同的趋势。TQC+HER在约279K步即突破50\%成功率，初期上升速度快于纯TQC的664K步，但在训练中后期逐渐趋于饱和，最终成功率为80.8\%。相比之下，纯TQC虽然初期学习较慢，但最终成功率达到了90.6\%，明显高于TQC+HER。从任务动力学角度分析，Slide任务要求机械臂通过精确的碰撞冲量将物块击打至远距离目标位置，目标分布涵盖近距与远距目标。HER的future目标重标记策略将实际到达的物体位置作为虚拟目标，在Slide任务中可能引入与原始目标分布不一致的偏向性监督信号，使策略倾向于学习将物块推至任意中间位置而非针对远距离目标的精确击打策略，导致策略在真实评估目标上的泛化性能下降。基于此消融实验结果，本研究最终选取纯TQC模型作为Slide任务的专家模型。
+
+训练完成后，各任务专家模型在独立评估中的成功率如\cref{tab:expert-success-rate}所示。其中Reach、Push和PickAndPlace任务采用TQC+HER配置，Slide任务采用纯TQC配置。Reach和PickAndPlace任务分别实现了100.0\%和99.0\%的成功率，接近最优控制性能。Push任务的成功率为97.9\%，表明专家策略在涉及物体推移的接触任务中已具备高度可靠性。Slide任务的成功率为90.6\%，相对较低，但也已经具备了一定的控制性能。
 
 \begin{table}[htbp]
 \centering
-\caption{各任务TQC+HER专家模型评估成功率}\label{tab:expert-success-rate}
+\caption{各任务专家模型评估成功率}\label{tab:expert-success-rate}
 \begin{tabular}{lcccc}
 \toprule
 任务 & Reach & Push & PickAndPlace & Slide \\
 \midrule
-评估成功率 (\%) & 100.0 & 97.9 & 99.0 & 83.2 \\
+所选配置 & TQC+HER & TQC+HER & TQC+HER & TQC \\
+评估成功率 (\%) & 100.0 & 97.9 & 99.0 & 90.6 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-本章基于TQC算法与HER机制，针对四项Fetch机械臂操作任务分别训练了高性能的单任务专家策略。实验结果表明，HER机制在稀疏奖励环境中发挥了关键作用，未使用HER的训练无法有效收敛。训练后的专家模型在四项任务上达成了\cref{tab:expert-success-rate}所示的成功率，为\cref{chap:dataset}中多任务微调数据集的构建提供了高质量的轨迹数据来源。
+\subsection{小结}
+本章基于TQC算法与HER机制，针对四项Fetch机械臂操作任务分别训练了高性能的单任务专家策略。消融实验结果表明，HER机制在稀疏奖励环境中普遍起到了加速训练收敛的作用，其效果随任务复杂度的提升而增强。然而，对于Slide等目标空间分布与实际到达状态分布存在较大差异的任务，HER的虚拟目标重标记可能引入偏向性监督信号，反而降低最终策略质量。本研究通过对比消融实验为每项任务选择了最优配置，训练后的专家模型在四项任务上达成了\cref{tab:expert-success-rate}所示的成功率，为\cref{chap:dataset}中多任务微调数据集的构建提供了高质量的轨迹数据来源。

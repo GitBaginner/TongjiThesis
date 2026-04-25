@@ -1,9 +1,6 @@
 \chapter{补充数据}\label{chap:appendix-data}
 
-\section{测试环境详细参数表}
-本节提供了测试环境中使用的机械臂模型、任务设置以及训练超参数的详细信息，以便读者能够更好地理解实验设置并复现相关结果。
-
-\subsection{环境参数表}\label{sec:environment-parameters}
+\section{测试环境详细参数表}\label{sec:environment-parameters}
 本节将提供测试的四个环境的环境参数表，包括状态空间维度、动作空间维度、奖励函数设计等关键信息。
 
 对于Reach、Push、Slide以及PickAndPlace任务，其参数表分别如\cref{tab:fetch-reach-full}、\cref{tab:fetch-push-full}、\cref{tab:fetch-slide-full}以及\cref{tab:fetch-pickplace-full}所示。
@@ -14,7 +11,7 @@
   \begin{tabular}{@{} llccll @{}} \toprule
     \textbf{类型} & \textbf{编号} & \textbf{参数名称} & \textbf{最小值} & \textbf{最大值} & \textbf{单位} \\ \midrule
     \textbf{动作} & 0-2 & 末端执行器在$(x, y, z)$方向的位移 & -1 & 1 & m \\
-    & 3 & 夹爪控制（闭合不激活） & -1 & 1 & - \\ \midrule
+    & 3 & 夹爪控制(闭合不激活) & -1 & 1 & - \\ \midrule
     \textbf{观测} & 0-2 & 末端执行器在全局坐标系中的位置$(x, y, z)$ & -Inf & Inf & m \\
      & 3-4 & 左右夹爪手指的关节位移$(d_l, d_r)$ & -Inf & Inf & m \\
     & 5-7 & 末端执行器在三个方向的线速度$(v_x, v_y, v_z)$ & -Inf & Inf & m/s \\
@@ -30,7 +27,7 @@
   \begin{tabular}{@{} llccll @{}} \toprule
     \textbf{类型} & \textbf{编号} & \textbf{参数名称} & \textbf{最小值} & \textbf{最大值} & \textbf{单位} \\ \midrule
     \textbf{动作} & 0-2 & 末端执行器在$(x, y, z)$方向的位移 & -1 & 1 & m \\
-    & 3 & 夹爪控制（闭合不激活） & -1 & 1 & - \\ \midrule
+    & 3 & 夹爪控制(闭合不激活) & -1 & 1 & - \\ \midrule
     \textbf{观测} & 0-2 & 末端执行器在全局坐标系中的位置$(x, y, z)$ & -Inf & Inf & m \\
     & 3-5 & 物体在全局坐标系中的位置$(x, y, z)$ & -Inf & Inf & m \\
     & 6-8 & 物体相对于末端执行器的相对位置$(x, y, z)$ & -Inf & Inf & m \\
@@ -52,7 +49,7 @@
   \begin{tabular}{@{} llccll @{}} \toprule
     \textbf{类型} & \textbf{编号} & \textbf{参数名称} & \textbf{最小值} & \textbf{最大值} & \textbf{单位} \\ \midrule
     \textbf{动作} & 0-2 & 末端执行器在$(x, y, z)$方向的位移 & -1 & 1 & m \\
-    & 3 & 夹爪控制（闭合不激活） & -1 & 1 & - \\ \midrule
+    & 3 & 夹爪控制(闭合不激活) & -1 & 1 & - \\ \midrule
     \textbf{观测} & 0-2 & 末端执行器的全局位置坐标$(x, y, z)$ & -Inf & Inf & m \\
     & 3-5 & 物体在全局坐标系中的位置$(x, y, z)$ & -Inf & Inf & m \\
     & 6-8 & 物体相对于末端执行器的相对位置$(x, y, z)$ & -Inf & Inf & m \\
