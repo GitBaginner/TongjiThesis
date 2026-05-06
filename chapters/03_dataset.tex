@@ -57,14 +57,15 @@ Assistant & 4维连续动作向量 & 去除冗余文本，专注数值映射学�
 \end{table}
 
 \cref{fig:prompt-example}展示了Reach任务的一个完整对话模板实例。System Prompt将模型设定为7自由度Fetch移动机械臂的专家控制器，明确指定控制目标为末端执行器的位置到达任务，同时将输出动作空间约束为4维连续变量$(\text{dx}, \text{dy}, \text{dz}, \text{gripper\_control})$，各维度数值严格限制在$[-1.0, 1.0]$区间内，为模型的输出提供了规范与校验依据。
+
+User Prompt将环境输入结构化为当前观测状态与目标完成情况两个模块。当前观测状态包含\cref{sec:data-transformation}所定义的末端执行器位置、速度及夹持器状态等物理状态变量，各数值均保留4位小数精度；目标完成信息则包含当前已达到状态与期望目标状态的对比，使模型在每个决策步均能获取完整的任务上下文。
+
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=0.75\textwidth]{figures/prompt_example.png}
   \caption{Reach任务的三角色对话模板示例}
   \label{fig:prompt-example}
 \end{figure}
-
-User Prompt将环境输入结构化为当前观测状态与目标完成情况两个模块。当前观测状态包含\cref{sec:data-transformation}所定义的末端执行器位置、速度及夹持器状态等物理状态变量，各数值均保留4位小数精度；目标完成信息则包含当前已达到状态与期望目标状态的对比，使模型在每个决策步均能获取完整的任务上下文。
 
 Assistant Prompt承载模型需要学习生成的目标输出。在训练阶段，其内容由\cref{sec:expert-training}训练的MLP专家网络生成，同样以4位小数精度表示。为避免冗余文本token干扰模型对数值映射关系的学习，动作指令仅保留4维连续动作的纯数值部分，去除所有文本描述与格式化符号。在推理阶段，Assistant Prompt对模型不可见，模型自主生成动作向量后，将其解析为numpy数组直接送入仿真环境执行。
 

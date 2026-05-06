@@ -2,7 +2,7 @@
 \section{引言}\label{sec:reinforce-intro}
 如\cref{chap:lead}所述，基于LLMs的机械臂控制方法需要高质量的专家示范数据来实现底层动作对齐与指令微调。传统的专家数据获取方式通常依赖于人工操作示教或硬编码方法，前者成本高昂且受限于示教者经验，后者难以应对复杂物理接触的动态任务。本章采用强化学习方法为各项基础操作任务训练专属的单任务专家模型，训练逼近最优的控制策略，为后续数据集构建提供可靠的数据源。
 
-本章以Gymnasium-Robotics库中的MuJoCo物理仿真引擎为基础，针对Fetch机械臂的四项基础操作任务(Reach、Push、Slide、PickAndPlace)展开研究，具体组织如下。\cref{sec:rl-theory}概述强化学习基础理论以及本章选用的截断分位数(TQC)算法与事后经验回放(HER)机制。\cref{sec:rl-environment}针对四项任务的物理特性，分别设计状态空间、动作空间与奖励函数。\cref{sec:expert-training}利用TQC及HER算法对四项任务进行独立的策略训练，并通过消融实验验证HER的作用，最终对各专家模型的评估成功率进行定量分析。
+本章以基于MuJoCo物理仿真引擎的Gymnasium-Robotics库为基础，针对Fetch机械臂的四项基础操作任务(Reach、Push、Slide、PickAndPlace)展开研究，具体组织如下。\cref{sec:rl-theory}概述强化学习基础理论以及本章选用的截断分位数(TQC)算法与事后经验回放(HER)机制。\cref{sec:rl-environment}针对四项任务的物理特性，分别设计状态空间、动作空间与奖励函数。\cref{sec:expert-training}利用TQC及HER算法对四项任务进行独立的策略训练，并通过消融实验验证HER的作用，最终对各专家模型的评估成功率进行定量分析。
 
 \section{强化学习基础理论和算法}\label{sec:rl-theory}
 \subsection{强化学习基础理论}\label{sec:rl-basics}
@@ -53,10 +53,11 @@ MDP定义为一个五元组$\langle \mathcal{S}, \mathcal{A}, P, r, \gamma \rang
 \begin{align}
     \mathcal{Z}(o,a) := \{z_{\psi_i}(o,a)|i=1,\ldots,N\} &= \{\theta_{\psi_i}^{j}(o,a)|i=1,\ldots,N; j=1,\ldots,M\}
 \end{align}
-为了从根源上控制过度估计偏差，TQC算法在目标分布的计算中引入截断机制，去除过于乐观的估计。将池化集合$\mathcal{Z}(o,a)$按升序排列，记排序后的第$k$个元素为$\theta_{k}(o,a)$。基于池化后的分布根据预设截断数量$d$从排序后的集合中强制舍弃数值最大的$d \times N$个分位数，仅保留较小的$K = (M - d) \times N$个分位数。经过截断后的最新分布如下：
+为了从根源上控制过度估计偏差，TQC算法在目标分布的计算中引入截断机制，去除过于乐观的估计。将池化集合$\mathcal{Z}(o,a)$按升序排列，记排序后的第$k$个元素为$\theta_{k}(o,a)$。基于池化后的分布根据预设截断数量$d$从排序后的集合中强制舍弃数值最大的$d \times N$个分位数，仅保留较小的$K = (M - d) \times N$个分位数，如\cref{fig:tqc-quantile}所示。经过截断后的最新分布如下：
 \begin{align}
     \mathcal{Z}(o,a) := \frac{1}{K} \sum_{k=1}^K \delta_{\theta_{k}(o,a)}(A)
 \end{align}
+
 之后，再引入SAC\cite{haarnoja2018soft}所使用的最大熵框架来鼓励探索，使智能体在高熵的时候更倾向于探索，低熵的情况下更倾向于采用当前最优策略用以鼓励探索，降低早期收敛到局部最优解的概率。在这一框架下，结合目标策略$\pi$的熵定义为：
 \begin{align}
     \mathcal{H}(\pi(\cdot|o)) = -\sum_{a} \pi(a|o) \log \pi(a|o)
@@ -146,7 +147,7 @@ MDP定义为一个五元组$\langle \mathcal{S}, \mathcal{A}, P, r, \gamma \rang
 \section{机械臂操作任务建模}\label{sec:rl-environment}
 本节采用基于MuJoCo物理引擎的Gymnasium-Robotics作为基准测试环境。选取了以7自由度Fetch移动机械臂为核心的四项基础操作任务Reach、Push、Slide以及PickAndPlace。
 
-在\cref{sec:her}所述的目标条件马尔可夫决策过程框架下，我们将这四项任务的物理状态、控制指令及反馈机制统一建模为状态与目标空间、动作空间以及奖励空间。环境建模的具体详细信息见\cref{sec:environment-parameters}。
+在\cref{sec:her}所述的目标条件马尔可夫决策过程框架下，我们将这四项任务的物理状态、控制指令及反馈机制统一建模为状态与目标空间、动作空间以及奖励空间。环境建模的具体详细信息见\cref{chap:detail-env}。
 
 \subsection{状态与目标空间建模}\label{sec:state-space}
 对于其状态与目标空间，Gymnasium-Robotics环境下Fetch任务的观测空间被设计为基于字典的导向结构，每次环境交互返回的信息包含三个键值：当前物理观测$o_t$、当前达成目标$g_a$以及期望目标$g$。根据有无被操作物体，这四项任务的观测维度存在差异。
